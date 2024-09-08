@@ -92,7 +92,7 @@ mgt2e_giant_star_class_dy = {
 }
 
 # Used to build subsector number lists
-subsector_letter_dictionary = {
+subsector_letter_dy = {
     'A': [[1, 8], [1, 10]],
     'B': [[9, 16], [1, 10]],
     'C': [[17, 24], [1, 10]],
@@ -115,3 +115,30 @@ subsector_letter_dictionary = {
 
 }
 
+#Used to lookup stellar temperature
+star_class_col_num_dy = {
+    'Ia':  0,
+    'Ib':  1,
+    'II':  2,
+    'III': 3,
+    'IV':  4,
+    'V':   5,
+    'VI':  6
+}
+
+#Used to lookup types of companion stars
+companion_star_category_dy = {
+    1: 'Other',
+    2: 'Other',
+    3: 'Other',
+    4: 'Random',
+    5: 'Random',
+    6: 'Lesser',
+    7: 'Lesser',
+    8: 'Sibling',
+    9: 'Sibling',
+    10: 'Twin',
+    11: 'Twin',
+    12: 'Twin',
+    13: 'Twin'
+}
