@@ -142,3 +142,20 @@ companion_star_category_dy = {
     12: 'Twin',
     13: 'Twin'
 }
+
+#Used to lookup types of secondary stars
+secondary_star_category_dy = {
+    1: 'Other',
+    2: 'Other',
+    3: 'Other',
+    4: 'Random',
+    5: 'Random',
+    6: 'Random',
+    7: 'Lesser',
+    8: 'Lesser',
+    9: 'Sibling',
+    10: 'Sibling',
+    11: 'Twin',
+    12: 'Twin',
+    13: 'Twin'
+}

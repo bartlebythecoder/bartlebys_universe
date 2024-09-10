@@ -6,6 +6,7 @@ import star_functions as sf
 import database_utils as du
 import lookup_tables as lu
 
+
 @dataclass
 class DiceRoll:
     location: str
@@ -40,6 +41,10 @@ class Star:
     designation: str
     orbit_class: str
     orbit_number: int
+    orbit_eccentricity: float
+    orbit_au: float
+    orbit_min: float
+    orbit_max: float
     star_type: str
     star_subtype: int
     star_class: str
@@ -179,7 +184,8 @@ class Star:
             self.star_mass = float(mass_table[lookup_key][star_class_col_num])
 
         except Exception as e:
-            logging.info(f"A star mass error occurred: {e}")
+
+            logging.info(f"A star mass error occurred: {e} {self.star_class} {self.star_type} {self.star_subtype}")
             self.star_mass = -1
 
     def get_star_temperature(self):
@@ -259,6 +265,7 @@ class Star:
             reason='d100 for iv star age',
             dice_result=percent,
             table_result='n/a')
+        du.insert_dice_rolls(self.db_name, dice_info)
         main_seq_lifespan = self.calculate_main_sequence_lifespan()
         subgiant_lifespan = main_seq_lifespan/(4 + self.star_mass)
 
@@ -300,6 +307,31 @@ class Star:
             logging.info(f"A star age error occurred: {e}")
             self.star_age = -99
 
+    def get_companion_orbit_number(self, designation: str):
+        # returns the orbit number of a companion star
+
+        die_roll_1 = sf.roll_dice(1)
+        dice_info = DiceRoll(
+            location=self.location,
+            number=1,
+            reason='first roll for orbit #',
+            dice_result=die_roll_1,
+            table_result=die_roll_1)
+        du.insert_dice_rolls(self.db_name, dice_info)
+
+        die_roll_2 = sf.roll_dice(2)
+        dice_info = DiceRoll(
+            location=self.location,
+            number=2,
+            reason='first roll for orbit #',
+            dice_result=die_roll_1,
+            table_result=die_roll_1)
+        du.insert_dice_rolls(self.db_name, dice_info)
+
+        if designation == 'Aa':
+            self.orbit_number = die_roll_1 / 10 + (die_roll_2 - 7) / 100
+        else:
+            self.orbit_number = -999
 
 
 

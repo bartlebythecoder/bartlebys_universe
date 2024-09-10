@@ -29,7 +29,11 @@ def create_star_details_table(db_name: str):
          location TEXT,
          designation INTEGER,
          orbit_class TEXT,
-         orbit_number INTEGER,
+         orbit_number REAL,
+         orbit_eccentricity REAL,
+         orbit_au REAL,
+         orbit_min REAL,
+         orbit_max REAL,
          star_type TEXT,
          star_subtype INTEGER,
          star_class TEXT,
@@ -104,6 +108,10 @@ def insert_star_details(star_details: object):
     designation,
     orbit_class,
     orbit_number,
+    orbit_eccentricity,
+    orbit_au,
+    orbit_min,
+    orbit_max,
     star_type,
     star_subtype,
     star_class,
@@ -112,13 +120,17 @@ def insert_star_details(star_details: object):
     star_diameter,
     star_luminosity,
     star_age)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     '''
     values_to_insert = (
         star_details.location,
         star_details.designation,
         star_details.orbit_class,
         star_details.orbit_number,
+        star_details.orbit_eccentricity,
+        star_details.orbit_au,
+        star_details.orbit_min,
+        star_details.orbit_max,
         star_details.star_type,
         star_details.star_subtype,
         star_details.star_class,
