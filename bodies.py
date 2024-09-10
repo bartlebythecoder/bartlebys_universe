@@ -39,6 +39,7 @@ class Star:
     build: int
     location: str
     designation: str
+    orbit_category: str
     orbit_class: str
     orbit_number: int
     orbit_eccentricity: float
@@ -127,9 +128,10 @@ class Star:
             self.star_type = 'B'
 
     def get_star_subtype(self):
-        if self.star_class == 'IV':
+        if self.star_class == 'IV' and self.star_type == 'K':
             dice_roll = random.randint(0, 4)
             self.star_subtype = dice_roll
+            logging.info(f'restricted subtype IV class star {self.star_class} {self.star_type} {self.star_subtype}')
         else:
             dice_roll = random.randint(0, 9)
             self.star_subtype = dice_roll
@@ -308,7 +310,7 @@ class Star:
             self.star_age = -99
 
     def get_companion_orbit_number(self, designation: str):
-        # returns the orbit number of a companion star
+        # returns the orbit number of a companion star after receiving designation of primary
 
         die_roll_1 = sf.roll_dice(1)
         dice_info = DiceRoll(
@@ -328,7 +330,7 @@ class Star:
             table_result=die_roll_1)
         du.insert_dice_rolls(self.db_name, dice_info)
 
-        if designation == 'Aa':
+        if designation == 'A':
             self.orbit_number = die_roll_1 / 10 + (die_roll_2 - 7) / 100
         else:
             self.orbit_number = -999

@@ -87,8 +87,8 @@ mgt2e_giant_star_class_dy = {
     8: 'III',
     9: 'II',
     10: 'II',
-    11: '1b',
-    12: '1a'
+    11: 'Ib',
+    12: 'Ia'
 }
 
 # Used to build subsector number lists

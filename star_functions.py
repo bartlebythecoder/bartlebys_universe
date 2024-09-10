@@ -76,6 +76,7 @@ def populate_primary(parms: object, each_location: str):
         build=parms.build,
         location=each_location,
         designation='A',
+        orbit_category='A',
         orbit_class='primary',
         orbit_number=0,
         orbit_eccentricity=0,
@@ -121,6 +122,7 @@ def build_blank_star(star):
         build=star.build,
         location=star.location,
         designation='X',
+        orbit_category='X',
         orbit_class='X',
         orbit_number=-99,
         orbit_eccentricity=-99,
@@ -198,11 +200,9 @@ def find_secondary_category(star):
     du.insert_dice_rolls(star.db_name, dice_info)
     return dice_info.table_result
 
+
 def create_twin_companion(star):
     companion_star = copy.deepcopy(star)
-    companion_star.designation='Ab'
-    companion_star.orbit_class='primary companion'
-    companion_star.star_age=0
 
     return companion_star
 
@@ -232,6 +232,7 @@ def fix_companion_type(companion_type, star):
 
     return companion_type
 
+
 def create_sibling_companion(star):
     total_dice = 1
     dice = roll_dice(total_dice)
@@ -250,14 +251,11 @@ def create_sibling_companion(star):
         if companion_type == star.star_type and companion_subtype < primary_subtype:
             companion_subtype = primary_subtype
 
-    if companion_type == 'K' and companion_subtype > 5:
-        companion_subtype = star.star_subtype
+
 
     companion_type = fix_companion_type(companion_type, star)
 
     companion_star = build_blank_star(star)
-    companion_star.designation = 'Ab'
-    companion_star.orbit_class = 'primary companion'
     companion_star.orbit_number = 0
     companion_star.star_type = companion_type
     companion_star.star_subtype = companion_subtype
@@ -266,7 +264,6 @@ def create_sibling_companion(star):
     companion_star.get_star_temperature()
     companion_star.get_star_diameter()
     companion_star.get_star_luminosity()
-    companion_star.star_age=0
 
     return companion_star
 
@@ -284,17 +281,14 @@ def create_lesser_companion(star):
 
     companion_star = build_blank_star(star)
 
-    companion_star.designation = 'Ab'
-    companion_star.orbit_class = 'primary companion'
     companion_star.orbit_number = 0
+    companion_star.star_class = star.star_class
     companion_star.star_type = companion_type
     companion_star.get_star_subtype()
-    companion_star.star_class = star.star_class
     companion_star.get_star_mass()
     companion_star.get_star_temperature()
     companion_star.get_star_diameter()
     companion_star.get_star_luminosity()
-    companion_star.star_age=0
 
     if companion_type == star.star_type and companion_star.star_subtype < star.star_subtype:
         companion_star.star_subtype = star.star_subtype  # In the future convert to Brown Dwarf
@@ -330,9 +324,7 @@ def create_random_companion(star):
     if is_hotter(companion_star, star):
         logging.info('Random creation too hot, creating a lesser')
         companion_star = create_lesser_companion(star)
-    companion_star.orbit_class = 'primary companion'
-    companion_star.designation = 'Ab'
-    companion_star.star_age = 0
+
     return companion_star
 
 
@@ -350,7 +342,7 @@ def populate_companion(star):
     elif companion_category == 'Random':
         primary_companion = create_random_companion(star)
     else:
-        primary_companion = create_sibling_companion(star)
+        primary_companion = create_sibling_companion(star)  # Other coming later
 
     if primary_companion.star_mass > star.star_mass:
         logging.info('***************** Mass of companion > Mass of Primary')
@@ -358,12 +350,15 @@ def populate_companion(star):
         primary_companion.star_mass = star.star_mass
         primary_companion.star_diameter = star.star_diameter
 
+    primary_companion.orbit_category = star.orbit_category
+    primary_companion.orbit_class = 'companion'
     primary_companion.get_companion_orbit_number(star.designation)
-
+    primary_companion.designation = star.designation + 'b'
+    primary_companion.star_age = 0
     return primary_companion
 
 
-def populate_secondary(star):
+def populate_secondary(star, orbit_class):
     # Returns a companion star based on details of the star given
     companion_category = find_companion_category(star)
     logging.info(f'Secondary found.  It is a {companion_category}')
@@ -385,7 +380,9 @@ def populate_secondary(star):
         primary_companion.star_mass = star.star_mass
         primary_companion.star_diameter = star.star_diameter
 
-    primary_companion.get_companion_orbit_number(star.designation)
+    primary_companion.orbit_class = orbit_class
+  #  primary_companion.get_companion_orbit_number(star.designation)
+
 
     return primary_companion
 

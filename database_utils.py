@@ -28,6 +28,7 @@ def create_star_details_table(db_name: str):
          id INTEGER PRIMARY KEY AUTOINCREMENT,
          location TEXT,
          designation INTEGER,
+         orbit_category TEXT,
          orbit_class TEXT,
          orbit_number REAL,
          orbit_eccentricity REAL,
@@ -106,6 +107,7 @@ def insert_star_details(star_details: object):
     INSERT INTO star_details
     (location,
     designation,
+    orbit_category,
     orbit_class,
     orbit_number,
     orbit_eccentricity,
@@ -120,11 +122,12 @@ def insert_star_details(star_details: object):
     star_diameter,
     star_luminosity,
     star_age)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     '''
     values_to_insert = (
         star_details.location,
         star_details.designation,
+        star_details.orbit_category,
         star_details.orbit_class,
         star_details.orbit_number,
         star_details.orbit_eccentricity,
