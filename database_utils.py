@@ -8,7 +8,8 @@ def create_system_details_table(db_name: str):
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         location TEXT,
         subsector TEXT,
-        system_age REAL
+        system_age REAL,
+        stars_in_system INT
     )
     '''
 
@@ -28,6 +29,9 @@ def create_star_details_table(db_name: str):
          id INTEGER PRIMARY KEY AUTOINCREMENT,
          location TEXT,
          designation INTEGER,
+         star_type TEXT,
+         star_subtype INTEGER,
+         star_class TEXT,
          orbit_category TEXT,
          orbit_class TEXT,
          orbit_number REAL,
@@ -35,10 +39,9 @@ def create_star_details_table(db_name: str):
          orbit_au REAL,
          orbit_min REAL,
          orbit_max REAL,
-         star_type TEXT,
-         star_subtype INTEGER,
-         star_class TEXT,
+         orbit_period REAL,
          star_mass REAL,
+         binary_mass REAL,
          star_temperature REAL,
          star_diameter REAL,
          star_luminosity REAL,
@@ -85,13 +88,15 @@ def insert_system_details(system_details: object):
     INSERT INTO system_details
     (location,
     subsector,
-    system_age)
-    VALUES (?,?,?)
+    system_age,
+    stars_in_system)
+    VALUES (?,?,?,?)
     '''
     values_to_insert = (
         system_details.location,
         system_details.subsector,
-        system_details.system_age
+        system_details.system_age,
+        system_details.stars_in_system
     )
 
     conn = sqlite3.connect(system_details.db_name)
@@ -107,6 +112,9 @@ def insert_star_details(star_details: object):
     INSERT INTO star_details
     (location,
     designation,
+    star_type,
+    star_subtype,
+    star_class,
     orbit_category,
     orbit_class,
     orbit_number,
@@ -114,19 +122,21 @@ def insert_star_details(star_details: object):
     orbit_au,
     orbit_min,
     orbit_max,
-    star_type,
-    star_subtype,
-    star_class,
+    orbit_period,
     star_mass,
+    binary_mass,
     star_temperature,
     star_diameter,
     star_luminosity,
     star_age)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     '''
     values_to_insert = (
         star_details.location,
         star_details.designation,
+        star_details.star_type,
+        star_details.star_subtype,
+        star_details.star_class,
         star_details.orbit_category,
         star_details.orbit_class,
         star_details.orbit_number,
@@ -134,14 +144,14 @@ def insert_star_details(star_details: object):
         star_details.orbit_au,
         star_details.orbit_min,
         star_details.orbit_max,
-        star_details.star_type,
-        star_details.star_subtype,
-        star_details.star_class,
+        star_details.orbit_period,
         star_details.star_mass,
+        star_details.binary_mass,
         star_details.star_temperature,
         star_details.star_diameter,
         star_details.star_luminosity,
-        star_details.star_age
+        star_details.star_age,
+
 
         )
 

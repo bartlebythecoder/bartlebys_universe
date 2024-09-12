@@ -115,7 +115,7 @@ subsector_letter_dy = {
 
 }
 
-#Used to lookup stellar temperature
+# Used to lookup stellar temperature
 star_class_col_num_dy = {
     'Ia':  0,
     'Ib':  1,
@@ -126,7 +126,7 @@ star_class_col_num_dy = {
     'VI':  6
 }
 
-#Used to lookup types of companion stars
+# Used to lookup types of companion stars
 companion_star_category_dy = {
     1: 'Other',
     2: 'Other',
@@ -143,7 +143,8 @@ companion_star_category_dy = {
     13: 'Twin'
 }
 
-#Used to lookup types of secondary stars
+
+# Used to lookup types of secondary stars
 secondary_star_category_dy = {
     1: 'Other',
     2: 'Other',
@@ -158,4 +159,48 @@ secondary_star_category_dy = {
     11: 'Twin',
     12: 'Twin',
     13: 'Twin'
+}
+
+
+# Used to lookup types of secondary stars
+orbit_number_to_au_dy = {
+    0: 0,
+    1: 0.4,
+    2: 0.7,
+    3: 1.0,
+    4: 1.6,
+    5: 2.8,
+    6: 5.2,
+    7: 10,
+    8: 20,
+    9: 40,
+    10: 77,
+    11: 154,
+    12: 308,
+    13: 615,
+    14: 1230,
+    15: 2500,
+    16: 4900,
+    17: 9800,
+    18: 19500,
+    19: 39500,
+    20: 78700
+}
+
+base_eccentricity_dy = {
+    1: -0.001,
+    2: -0.001,
+    3: -0.001,
+    4: -0.001,
+    5: -0.001,
+    6: 0,
+    7: 0,
+    8: 0.03,
+    9: 0.03,
+    10: 0.05,
+    11: 0.05,
+    12: 0.3,
+    13: 0.3,
+    14: 0.3,
+    15: 0.3
 }

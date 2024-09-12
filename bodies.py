@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 import random
 import logging
+import math
 
-import star_functions as sf
+import generic_functions as gf
 import database_utils as du
 import lookup_tables as lu
 
@@ -14,6 +15,7 @@ class DiceRoll:
     reason: str
     dice_result: float
     table_result: str
+
 
 @dataclass
 class Parameters:
@@ -31,6 +33,7 @@ class System:
     location: str
     subsector: str
     system_age: float
+    stars_in_system: int
 
 
 @dataclass
@@ -41,15 +44,18 @@ class Star:
     designation: str
     orbit_category: str
     orbit_class: str
-    orbit_number: int
+    orbit_number: float
+    stars_orbited: int
     orbit_eccentricity: float
     orbit_au: float
     orbit_min: float
     orbit_max: float
+    orbit_period: float
     star_type: str
     star_subtype: int
     star_class: str
     star_mass: float
+    binary_mass: float
     star_temperature: float
     star_diameter: float
     star_luminosity: float
@@ -60,9 +66,10 @@ class Star:
     minimal_orbit_number: int
     habitable_zone_center: int
 
+
     def get_hot_star_type(self):
         # if the original get_star_type function returns a hot star, this function is used to return a star type
-        dice = sf.roll_dice(2)
+        dice = gf.roll_dice(2)
         dice_info = DiceRoll(
             location=self.location,
             number=2,
@@ -78,7 +85,7 @@ class Star:
 
         star_type_dy = lu.mgt2e_standard_star_type_dy
 
-        dice = sf.roll_dice(2)
+        dice = gf.roll_dice(2)
         dice_info = DiceRoll(
             location=self.location,
             number=2,
@@ -96,7 +103,7 @@ class Star:
         # if get_star_type returns a special star, use the class to return the final star type
 
         star_type_dy = lu.mgt2e_standard_star_type_dy
-        dice = sf.roll_dice(2) + 1
+        dice = gf.roll_dice(2) + 1
 
         # Special rule for IV luminosity stars
         if self.star_class == 'IV':
@@ -146,7 +153,7 @@ class Star:
 
     def get_giant_star_class(self):
         # if the original get_star_class returns a giant star, use this function to return the class
-        dice = sf.roll_dice(2)
+        dice = gf.roll_dice(2)
         dice_info = DiceRoll(
             location=self.location,
             number=2,
@@ -163,7 +170,7 @@ class Star:
             self.star_class = 'V'
 
         else:
-            dice = sf.roll_dice(2)
+            dice = gf.roll_dice(2)
             dice_info = DiceRoll(
                 location=self.location,
                 number=2,
@@ -180,7 +187,7 @@ class Star:
     def get_star_mass(self):
         # Returns string value of the star mass
         try:
-            mass_table = sf.csv_to_dict_of_lists('stellar_mass_temperature.csv')
+            mass_table = gf.csv_to_dict_of_lists('stellar_mass_temperature.csv')
             lookup_key = self.star_type + str(self.star_subtype)
             star_class_col_num = lu.star_class_col_num_dy[self.star_class]
             self.star_mass = float(mass_table[lookup_key][star_class_col_num])
@@ -193,14 +200,14 @@ class Star:
     def get_star_temperature(self):
         # Returns the star temperature after receiving star details
 
-        mass_table = sf.csv_to_dict_of_lists('stellar_mass_temperature.csv')
+        mass_table = gf.csv_to_dict_of_lists('stellar_mass_temperature.csv')
         lookup_key = self.star_type + str(self.star_subtype)
         self.star_temperature = float(mass_table[lookup_key][7])
 
     def get_star_diameter(self):
         # Returns the star diameter after receiving star details
         try:
-            diameter_table = sf.csv_to_dict_of_lists('stellar_diameter.csv')
+            diameter_table = gf.csv_to_dict_of_lists('stellar_diameter.csv')
             star_class_col_num = lu.star_class_col_num_dy[self.star_class]
             lookup_key = self.star_type + str(self.star_subtype)
             self.star_diameter = float(diameter_table[lookup_key][star_class_col_num])
@@ -222,7 +229,7 @@ class Star:
         return 10 / self.star_mass ** 2.5
 
     def get_small_star_age(self):
-        d1 = sf.roll_dice(1)
+        d1 = gf.roll_dice(1)
         dice_info = DiceRoll(
             location=self.location,
             number=1,
@@ -231,7 +238,7 @@ class Star:
             table_result='n/a')
         du.insert_dice_rolls(self.db_name, dice_info)
 
-        d3 = sf.roll_dice(1)
+        d3 = gf.roll_dice(1)
         dice_info = DiceRoll(
             location=self.location,
             number=1,
@@ -309,31 +316,174 @@ class Star:
             logging.info(f"A star age error occurred: {e}")
             self.star_age = -99
 
-    def get_companion_orbit_number(self, designation: str):
-        # returns the orbit number of a companion star after receiving designation of primary
+    def get_companion_orbit_number(self, primary: object):
+        # returns the orbit number of a companion star after receiving the primary details
 
-        die_roll_1 = sf.roll_dice(1)
+        if primary.star_class not in ['Ia', 'Ib', 'II', 'III']:
+            logging.info(f'{primary.star_class} using default method for orbit #')
+
+            die_roll_1 = gf.roll_dice(1)
+            dice_info = DiceRoll(
+                location=self.location,
+                number=1,
+                reason='first roll for orbit #',
+                dice_result=die_roll_1,
+                table_result=die_roll_1)
+            du.insert_dice_rolls(self.db_name, dice_info)
+
+            die_roll_2 = gf.roll_dice(2)
+            dice_info = DiceRoll(
+                location=self.location,
+                number=2,
+                reason='first roll for orbit #',
+                dice_result=die_roll_1,
+                table_result=die_roll_1)
+            du.insert_dice_rolls(self.db_name, dice_info)
+
+
+            self.orbit_number = die_roll_1 / 10 + (die_roll_2 - 7) / 100
+
+
+        else:
+            logging.info(f'{primary.star_class} using giant method for orbit #')
+            die_roll = gf.roll_dice(1)
+            dice_info = DiceRoll(
+                location=self.location,
+                number=1,
+                reason='orbit number for giant',
+                dice_result=die_roll,
+                table_result=die_roll)
+            du.insert_dice_rolls(self.db_name, dice_info)
+            moa_table = gf.csv_to_dict_of_lists('moa.csv')
+            lookup_key = self.star_type + str(self.star_subtype)
+            star_class_col_num = lu.star_class_col_num_dy[self.star_class]
+            self.orbit_number = float(moa_table[lookup_key][star_class_col_num]) * die_roll
+
+    def get_close_secondary_orbit_number(self):
+        die_roll = gf.roll_dice(1)
+
+        if die_roll == 1:
+            self.orbit_number = 0.5
+        else:
+            self.orbit_number = die_roll - 1
+
         dice_info = DiceRoll(
             location=self.location,
             number=1,
-            reason='first roll for orbit #',
-            dice_result=die_roll_1,
-            table_result=die_roll_1)
+            reason='close secondary orbit number',
+            dice_result=die_roll,
+            table_result=str(self.orbit_number))
         du.insert_dice_rolls(self.db_name, dice_info)
 
-        die_roll_2 = sf.roll_dice(2)
+    def get_near_secondary_orbit_number(self):
+        die_roll = gf.roll_dice(1)
+
+        self.orbit_number = die_roll + 5
+
+        dice_info = DiceRoll(
+            location=self.location,
+            number=1,
+            reason='near secondary orbit number',
+            dice_result=die_roll,
+            table_result=str(self.orbit_number))
+        du.insert_dice_rolls(self.db_name, dice_info)
+
+    def get_far_secondary_orbit_number(self):
+        die_roll = gf.roll_dice(1)
+
+        self.orbit_number = die_roll + 11
+
+        dice_info = DiceRoll(
+            location=self.location,
+            number=1,
+            reason='far secondary orbit number',
+            dice_result=die_roll,
+            table_result=str(self.orbit_number))
+        du.insert_dice_rolls(self.db_name, dice_info)
+
+    def get_au(self):
+        if self.orbit_number < 1:
+            self.orbit_au = lu.orbit_number_to_au_dy[1] * self.orbit_number
+        else:
+            self.orbit_au = lu.orbit_number_to_au_dy[self.orbit_number]
+
+    def get_base_eccentricity(self):
+        logging.info(f'Getting base eccentricity.  Total stars directly orbited {self.stars_orbited}')
+
+        dice_roll = gf.roll_dice(2) + 2
+        if self.stars_orbited > 1:
+            dice_roll += 1
+
         dice_info = DiceRoll(
             location=self.location,
             number=2,
-            reason='first roll for orbit #',
-            dice_result=die_roll_1,
-            table_result=die_roll_1)
+            reason='generating base eccentricity',
+            dice_result=dice_roll,
+            table_result=lu.base_eccentricity_dy[dice_roll])
         du.insert_dice_rolls(self.db_name, dice_info)
 
-        if designation == 'A':
-            self.orbit_number = die_roll_1 / 10 + (die_roll_2 - 7) / 100
+        return float(dice_info.table_result)
+
+
+    def adjust_eccentricity(self):
+
+        def calculate_eccentricity(dice, divisor):
+            dice_roll = gf.roll_dice(dice)
+            calculation = dice_roll / divisor
+
+            dice_info = DiceRoll(
+                location=self.location,
+                number=dice,
+                reason='calculating adjustment',
+                dice_result=dice_roll,
+                table_result=str(calculation))
+            du.insert_dice_rolls(self.db_name, dice_info)
+
+            return calculation
+
+        row_roll = gf.roll_dice(2)
+
+        if row_roll <= 5:
+            adjustment = calculate_eccentricity(1,1000)
+
+        elif 6 <= row_roll <= 7:
+            adjustment = calculate_eccentricity(1, 200)
+
+        elif 8 <= row_roll <= 9:
+            adjustment = calculate_eccentricity(1, 100)
+
+        elif row_roll == 10:
+            adjustment = calculate_eccentricity(1, 20)
+
+        elif row_roll >= 11:
+            adjustment = calculate_eccentricity(2, 20)
+
         else:
-            self.orbit_number = -999
+            adjustment = -99
+            logging.info('Error calculating eccentricity')
+
+        return adjustment
 
 
+    def get_eccentricity(self):
+        self.orbit_eccentricity = self.get_base_eccentricity() + self.adjust_eccentricity()
 
+    def get_orbit_min(self):
+        self.orbit_min = self.orbit_au * (1 - self.orbit_eccentricity)
+
+    def get_orbit_max(self):
+        self.orbit_max = self.orbit_au * (1 + self.orbit_eccentricity)
+
+
+def calculate_orbit_period(au, large_mass, small_mass):
+    return round(math.sqrt(au**3/(large_mass + small_mass))*365.25,2)
+
+
+def calculate_secondary_orbit_period(larger_star: Star, smaller_star: Star):
+    au = smaller_star.orbit_au
+    return calculate_orbit_period(au, larger_star.binary_mass, smaller_star.star_mass)
+
+
+def calculate_companion_orbit_period(larger_star: Star, smaller_star: Star):
+    au = smaller_star.orbit_au
+    return calculate_orbit_period(au, larger_star.star_mass, smaller_star.star_mass)
