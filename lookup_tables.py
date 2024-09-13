@@ -128,37 +128,37 @@ star_class_col_num_dy = {
 
 # Used to lookup types of companion stars
 companion_star_category_dy = {
-    1: 'Other',
-    2: 'Other',
-    3: 'Other',
-    4: 'Random',
-    5: 'Random',
-    6: 'Lesser',
-    7: 'Lesser',
-    8: 'Sibling',
-    9: 'Sibling',
-    10: 'Twin',
-    11: 'Twin',
-    12: 'Twin',
-    13: 'Twin'
+    1: 'other',
+    2: 'other',
+    3: 'other',
+    4: 'random',
+    5: 'random',
+    6: 'lesser',
+    7: 'lesser',
+    8: 'sibling',
+    9: 'sibling',
+    10: 'twin',
+    11: 'twin',
+    12: 'twin',
+    13: 'twin'
 }
 
 
 # Used to lookup types of secondary stars
 secondary_star_category_dy = {
-    1: 'Other',
-    2: 'Other',
-    3: 'Other',
-    4: 'Random',
-    5: 'Random',
-    6: 'Random',
-    7: 'Lesser',
-    8: 'Lesser',
-    9: 'Sibling',
-    10: 'Sibling',
-    11: 'Twin',
-    12: 'Twin',
-    13: 'Twin'
+    1: 'other',
+    2: 'other',
+    3: 'other',
+    4: 'random',
+    5: 'random',
+    6: 'random',
+    7: 'lesser',
+    8: 'lesser',
+    9: 'sibling',
+    10: 'sibling',
+    11: 'twin',
+    12: 'twin',
+    13: 'twin'
 }
 
 

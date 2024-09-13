@@ -7,6 +7,9 @@ import generic_functions as gf
 import database_utils as du
 import lookup_tables as lu
 
+UNDEFINED_VALUE = -99
+UNDEFINED_CATEGORY = 'XX'
+
 
 @dataclass
 class DiceRoll:
@@ -22,7 +25,6 @@ class Parameters:
     db_name: str
     build: int
     frequency: int  # for checking if system is present
-    subsector_list: list
     random_seed: int
 
 
@@ -44,6 +46,7 @@ class Star:
     designation: str
     orbit_category: str
     orbit_class: str
+    companion_type: str
     orbit_number: float
     stars_orbited: int
     orbit_eccentricity: float
@@ -66,6 +69,60 @@ class Star:
     minimal_orbit_number: int
     habitable_zone_center: int
 
+    def __init__(self, parms: Parameters, each_location: str):
+        # Initialize attributes with provided values
+        self.db_name = parms.db_name
+        self.build = parms.build
+        self.location = each_location
+        self.designation = 'A'
+        self.orbit_category = 'A'
+        self.orbit_class = 'primary'
+        self.companion_type = 'primary'
+        self.orbit_number = 0
+        self.stars_orbited = 0
+        self.orbit_eccentricity = 0
+        self.orbit_au = 0
+        self.orbit_min = 0
+        self.orbit_max = 0
+        self.orbit_period = 0
+
+        # Initialize attributes with default undefined values
+        self.star_type = UNDEFINED_CATEGORY
+        self.star_subtype = UNDEFINED_VALUE
+        self.star_class = UNDEFINED_CATEGORY
+        self.star_mass = UNDEFINED_VALUE
+        self.binary_mass = UNDEFINED_VALUE
+        self.star_temperature = UNDEFINED_VALUE
+        self.star_diameter = UNDEFINED_VALUE
+        self.star_luminosity = UNDEFINED_VALUE
+        self.star_age = UNDEFINED_VALUE
+
+        # Not yet included
+        self.gas_giants = UNDEFINED_VALUE
+        self.planetoid_belts = UNDEFINED_VALUE
+        self.terrestrial_planets = UNDEFINED_VALUE
+        self.minimal_orbit_number = UNDEFINED_VALUE
+        self.habitable_zone_center = UNDEFINED_VALUE
+
+        # Call methods to populate attributes based on logic
+        self.get_star_type()
+        self.get_star_class()
+
+        if self.star_type == 'Special':
+            self.get_special_star_type()
+
+        self.get_star_subtype()
+        self.get_star_mass()
+        self.binary_mass = self.star_mass
+        self.get_star_temperature()
+        self.get_star_diameter()
+        self.get_star_luminosity()
+        self.get_star_age()
+
+    def update_from_companion(self, companion):
+        # Update binary_mass and designation due to a companion being added
+        self.designation += 'a'
+        self.binary_mass = self.star_mass + companion.star_mass
 
     def get_hot_star_type(self):
         # if the original get_star_type function returns a hot star, this function is used to return a star type
@@ -134,6 +191,56 @@ class Star:
         if self.star_class == 'VI' and self.star_type == 'A':
             self.star_type = 'B'
 
+    def get_previous_star_type(self, original_type):
+        # returns a "lower" star class from the one provided
+        # used for sibling companions
+        type_list = ['O', 'B', 'A', 'F', 'G', 'K', 'M']
+        try:
+            index = type_list.index(original_type)
+            if index < 6:  # Check if it's not the first element
+                logging.info(f'Getting previous star type. Was {original_type} now {type_list[index + 1]}')
+                self.star_type = type_list[index + 1]
+            else:
+                logging.info(f'Getting previous star class. Keeping {type_list[6]}')
+                self.star_type = type_list[6]
+
+        except Exception as e:
+            logging.info(f'Previous Star Type Error {e}')
+            self.star_type = 'X'
+
+    def get_other_star_type(self):
+        dice_roll = gf.roll_dice(2)
+        dice_info = DiceRoll(
+            location=self.location,
+            number=2,
+            reason='Other Star Type',
+            dice_result=dice_roll,
+            table_result=dice_roll)
+        du.insert_dice_rolls(self.db_name, dice_info)
+
+        if dice_roll <= 7:
+            self.star_type = 'D'
+            self.star_class = 'D'
+        else:
+            self.star_type = 'BD'
+            self.star_class = 'BD'
+
+    def get_non_primary_star_type(self, main, companion_category):
+        self.companion_type = companion_category
+        if companion_category == 'twin':
+            self.star_type = main.star_type
+
+        elif companion_category == 'sibling':
+            self.star_type = main.star_type
+        elif companion_category == 'lesser':
+            self.get_previous_star_type(main.star_type)
+        elif companion_category == 'random':
+            self.get_star_type()
+            if is_hotter(self, main) or self.star_type == 'Special':
+                self.get_previous_star_type(main.star_type)
+        elif companion_category == 'other':
+            self.get_other_star_type()
+
     def get_star_subtype(self):
         if self.star_class == 'IV' and self.star_type == 'K':
             dice_roll = random.randint(0, 4)
@@ -150,6 +257,42 @@ class Star:
             dice_result=dice_roll,
             table_result='n/a')
         du.insert_dice_rolls(self.db_name, dice_info)
+
+    def get_sibling_type_subtype(self, main):
+        if main.star_type not in ['M', 'D', 'BD']:
+            total_dice = 1
+            dice = gf.roll_dice(total_dice)
+            dice_info = DiceRoll(main.location, total_dice, 'find siblings star type and subtype', dice, str(dice))
+            du.insert_dice_rolls(main.db_name, dice_info)
+            cooler_star_subtype = main.star_subtype + dice
+            if cooler_star_subtype <= 9:
+                self.star_subtype = cooler_star_subtype
+            else:
+                cooler_star_subtype -= 10
+                self.star_subtype = cooler_star_subtype
+                current_type = self.star_type
+                self.get_previous_star_type(self.star_type)
+        elif main.star_type in ['M', 'D', 'BD']:
+            die = random.randint(main.star_subtype, 9)
+            dice_info = DiceRoll(main.location, die, 'M class random subtype', die, str(die))
+            du.insert_dice_rolls(main.db_name, dice_info)
+            self.star_subtype = die
+        else:
+            logging.info('Subtype Error')
+            self.star_subtype = -1
+
+    def get_non_primary_star_subtype(self, main, companion_category):
+        if companion_category == 'twin':
+            self.star_subtype = main.star_subtype
+        elif companion_category == 'sibling':
+            self.get_sibling_type_subtype(main)
+        elif companion_category == 'lesser':
+            self.get_star_subtype()
+        elif companion_category == 'random':
+            self.get_star_subtype()
+
+        elif companion_category == 'other':
+            self.get_star_subtype()
 
     def get_giant_star_class(self):
         # if the original get_star_class returns a giant star, use this function to return the class
@@ -184,36 +327,119 @@ class Star:
             else:
                 self.star_class = dice_info.table_result
 
+    def fix_star_subtype_errors(self):
+        if self.star_class == 'IV':
+            if self.star_type == 'O':
+                self.star_type = 'B'
+                self.star_subtype = 0
+            elif self.star_type in ['K','M']:
+                self.star_type = 'K'
+                self.star_subtype = 4
+        elif self.star_class == 'VI':
+            if self.star_type in ['A','F']:
+                self.star_class = 'G'
+                self.star_subtype = 0
+
+
+
+
+
+    def get_brown_dwarf_mass(self):
+        dice_roll_1 = gf.roll_dice(1)
+        dice_roll_2 = gf.roll_dice(4)
+
+        dice_info = DiceRoll(
+            location=self.location,
+            number=2,
+            reason='Brown Dwarf Mass first roll',
+            dice_result=dice_roll_1,
+            table_result=str(dice_roll_1))
+        du.insert_dice_rolls(self.db_name, dice_info)
+
+        dice_info = DiceRoll(
+            location=self.location,
+            number=4,
+            reason='Brown Dwarf Mass second roll',
+            dice_result=dice_roll_2,
+            table_result=str(dice_roll_2))
+        du.insert_dice_rolls(self.db_name, dice_info)
+
+        self.star_mass = (dice_roll_1 / 100) + ((dice_roll_2 - 1) / 1000)
+
+    def get_white_dwarf_mass(self):
+        dice_roll = gf.roll_dice(2)
+        d10 = random.randint(1,10)
+
+        dice_info = DiceRoll(
+            location=self.location,
+            number=2,
+            reason='White Dwarf Mass first roll',
+            dice_result=dice_roll,
+            table_result=dice_roll)
+        du.insert_dice_rolls(self.db_name, dice_info)
+
+        dice_info = DiceRoll(
+            location=self.location,
+            number=1,
+            reason='White Dwarf Mass second roll d10',
+            dice_result=d10,
+            table_result=str(d10))
+        du.insert_dice_rolls(self.db_name, dice_info)
+
+        self.star_mass = ((dice_roll - 1) / 10) + (d10/100)
+
     def get_star_mass(self):
         # Returns string value of the star mass
-        try:
-            mass_table = gf.csv_to_dict_of_lists('stellar_mass_temperature.csv')
-            lookup_key = self.star_type + str(self.star_subtype)
-            star_class_col_num = lu.star_class_col_num_dy[self.star_class]
-            self.star_mass = float(mass_table[lookup_key][star_class_col_num])
+        if self.star_class == 'BD':
+            self.get_brown_dwarf_mass()
 
-        except Exception as e:
+        elif self.star_class == 'D':
+            self.get_white_dwarf_mass()
 
-            logging.info(f"A star mass error occurred: {e} {self.star_class} {self.star_type} {self.star_subtype}")
-            self.star_mass = -1
+        else:
+            try:
+                mass_table = gf.csv_to_dict_of_lists('stellar_mass_temperature.csv')
+                lookup_key = self.star_type + str(self.star_subtype)
+                star_class_col_num = lu.star_class_col_num_dy[self.star_class]
+                self.star_mass = float(mass_table[lookup_key][star_class_col_num])
+
+            except Exception as e:
+
+                logging.info(f"A star mass error occurred: {e} {self.star_class} {self.star_type} {self.star_subtype}")
+                self.star_mass = -1
 
     def get_star_temperature(self):
         # Returns the star temperature after receiving star details
-
-        mass_table = gf.csv_to_dict_of_lists('stellar_mass_temperature.csv')
-        lookup_key = self.star_type + str(self.star_subtype)
-        self.star_temperature = float(mass_table[lookup_key][7])
+        if self.star_class not in ['D', 'BD']:
+            mass_table = gf.csv_to_dict_of_lists('stellar_mass_temperature.csv')
+            lookup_key = self.star_type + str(self.star_subtype)
+            self.star_temperature = float(mass_table[lookup_key][7])
+        elif self.star_class == 'D':
+            self.star_temperature = 8000
+            logging.info('White Dwarf temperature assumed until table can be created')
+        elif self.star_class == 'BD':
+            self.star_temperature = 1200
+            logging.info('Brown Dwarf temperature assumed until table can be created')
 
     def get_star_diameter(self):
         # Returns the star diameter after receiving star details
         try:
-            diameter_table = gf.csv_to_dict_of_lists('stellar_diameter.csv')
-            star_class_col_num = lu.star_class_col_num_dy[self.star_class]
-            lookup_key = self.star_type + str(self.star_subtype)
-            self.star_diameter = float(diameter_table[lookup_key][star_class_col_num])
-
+            if self.star_class not in ['D', 'BD']:
+                diameter_table = gf.csv_to_dict_of_lists('stellar_diameter.csv')
+                star_class_col_num = lu.star_class_col_num_dy[self.star_class]
+                lookup_key = self.star_type + str(self.star_subtype)
+                self.star_diameter = float(diameter_table[lookup_key][star_class_col_num])
+            elif self.star_class == 'D':
+                self.star_diameter = .017
+                logging.info('White Dwarf diameter assumed until table can be created')
+            elif self.star_class == 'BD':
+                self.star_diameter = .1
+                logging.info('Brown Dwarf diameter assumed until table can be created')
+            else:
+                logging.info(f"A star diameter if else error occurred")
+                self.star_diameter = -1
         except Exception as e:
-            logging.info(f"A star diameter error occurred: {e}")
+            logging.info(f"A star diameter try except error occurred: {e}")
             self.star_diameter = -1
 
     def get_star_luminosity(self):
@@ -288,6 +514,7 @@ class Star:
             reason='d100 for iii star age',
             dice_result=percent,
             table_result='n/a')
+        du.insert_dice_rolls(self.db_name, dice_info)
         main_seq_lifespan = self.calculate_main_sequence_lifespan()
         subgiant_lifespan = main_seq_lifespan / (4 + self.star_mass)
         giant_lifespan = main_seq_lifespan/(10 * self.star_mass ** 3)
@@ -316,6 +543,27 @@ class Star:
             logging.info(f"A star age error occurred: {e}")
             self.star_age = -99
 
+    def get_white_dwarf_age(self):
+        self.get_small_star_age()
+        mass = random.randint(1,3)
+        dice_info = DiceRoll(
+            location=self.location,
+            number=0,
+            reason='d3 for WD star age-mass',
+            dice_result=mass,
+            table_result=str(mass))
+        du.insert_dice_rolls(self.db_name, dice_info)
+        star_final_age = round((10/mass ** 2.5) * (1 + (1 / (4 + mass)) + (1 / (10 * mass ** 3))),2)
+        self.star_age += star_final_age
+
+    def get_non_primary_star_age(self):
+        if self.star_class not in ['BD', 'D']:
+            self.star_age = 0
+        elif self.star_class == 'BD':
+            self.get_small_star_age()
+        elif self.star_class == 'D':
+            self.get_white_dwarf_age()
+
     def get_companion_orbit_number(self, primary: object):
         # returns the orbit number of a companion star after receiving the primary details
 
@@ -340,9 +588,7 @@ class Star:
                 table_result=die_roll_1)
             du.insert_dice_rolls(self.db_name, dice_info)
 
-
             self.orbit_number = die_roll_1 / 10 + (die_roll_2 - 7) / 100
-
 
         else:
             logging.info(f'{primary.star_class} using giant method for orbit #')
@@ -401,7 +647,7 @@ class Star:
             table_result=str(self.orbit_number))
         du.insert_dice_rolls(self.db_name, dice_info)
 
-    def get_au(self):
+    def get_orbit_au(self):
         if self.orbit_number < 1:
             self.orbit_au = lu.orbit_number_to_au_dy[1] * self.orbit_number
         else:
@@ -423,7 +669,6 @@ class Star:
         du.insert_dice_rolls(self.db_name, dice_info)
 
         return float(dice_info.table_result)
-
 
     def adjust_eccentricity(self):
 
@@ -464,8 +709,7 @@ class Star:
 
         return adjustment
 
-
-    def get_eccentricity(self):
+    def get_orbit_eccentricity(self):
         self.orbit_eccentricity = self.get_base_eccentricity() + self.adjust_eccentricity()
 
     def get_orbit_min(self):
@@ -474,8 +718,13 @@ class Star:
     def get_orbit_max(self):
         self.orbit_max = self.orbit_au * (1 + self.orbit_eccentricity)
 
+    def get_companion_orbit_period(self, main):
+        au = self.orbit_au
+        return calculate_orbit_period(au, main.star_mass, self.star_mass)
+
 
 def calculate_orbit_period(au, large_mass, small_mass):
+    logging.info(f'orbit period {au}, {large_mass}, {small_mass}')
     return round(math.sqrt(au**3/(large_mass + small_mass))*365.25,2)
 
 
@@ -487,3 +736,20 @@ def calculate_secondary_orbit_period(larger_star: Star, smaller_star: Star):
 def calculate_companion_orbit_period(larger_star: Star, smaller_star: Star):
     au = smaller_star.orbit_au
     return calculate_orbit_period(au, larger_star.star_mass, smaller_star.star_mass)
+
+
+def is_hotter(companion: Star, primary: Star):
+    type_list = ['O', 'B', 'A', 'F', 'G', 'K', 'M']
+    try:
+        companion_index = type_list.index(companion.star_type)
+        primary_index = type_list.index(primary.star_type)
+        if companion_index > primary_index:
+            return False
+        elif companion_index == primary_index and companion.star_subtype > primary.star_subtype:
+            return False
+        else:
+            return True
+
+    except ValueError:
+        logging.info('Random Companion Error')
+        return False

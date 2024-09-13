@@ -34,7 +34,9 @@ def create_star_details_table(db_name: str):
          star_class TEXT,
          orbit_category TEXT,
          orbit_class TEXT,
+         companion_type TEXT,
          orbit_number REAL,
+         stars_orbited INT,
          orbit_eccentricity REAL,
          orbit_au REAL,
          orbit_min REAL,
@@ -117,7 +119,9 @@ def insert_star_details(star_details: object):
     star_class,
     orbit_category,
     orbit_class,
+    companion_type,
     orbit_number,
+    stars_orbited,
     orbit_eccentricity,
     orbit_au,
     orbit_min,
@@ -129,7 +133,7 @@ def insert_star_details(star_details: object):
     star_diameter,
     star_luminosity,
     star_age)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     '''
     values_to_insert = (
         star_details.location,
@@ -139,7 +143,9 @@ def insert_star_details(star_details: object):
         star_details.star_class,
         star_details.orbit_category,
         star_details.orbit_class,
+        star_details.companion_type,
         star_details.orbit_number,
+        star_details.stars_orbited,
         star_details.orbit_eccentricity,
         star_details.orbit_au,
         star_details.orbit_min,
@@ -188,3 +194,15 @@ def insert_dice_rolls(db_name: str, dice_details: object):
     conn.commit()
     c.close()
     conn.close()
+
+
+def create_sql_tables(parms):
+    create_system_details_table(parms.db_name)
+    create_star_details_table(parms.db_name)
+    create_dice_rolls_table(parms.db_name)
+
+
+def update_star_tables(primary, companion):
+    insert_star_details(primary)
+    if companion is not None:
+        insert_star_details(companion)

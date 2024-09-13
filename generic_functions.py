@@ -1,6 +1,8 @@
-import lookup_tables as lu
 import random
 import csv
+import string
+
+import lookup_tables as lu
 
 
 def roll_dice(number: int):
@@ -47,3 +49,15 @@ def get_subsector_number_list(subsector: str):
     return subsector_number_list
 
 
+def get_location_details():
+    subsector_list = list(string.ascii_uppercase[:16])  # A to P
+    location_list = []
+    subsector_dy = {}
+    for subsector in subsector_list:
+        locations = get_subsector_number_list(subsector)
+        location_list += locations
+        for each_location in locations:
+            subsector_dy[each_location] = subsector
+
+    location_list.sort()
+    return subsector_dy, location_list
