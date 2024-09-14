@@ -387,6 +387,18 @@ class Star:
 
         self.star_mass = ((dice_roll - 1) / 10) + (d10/100)
 
+    def get_main_star_mass(self):
+        try:
+            mass_table = gf.csv_to_dict_of_lists('stellar_mass_temperature.csv')
+            lookup_key = self.star_type + str(self.star_subtype)
+            star_class_col_num = lu.star_class_col_num_dy[self.star_class]
+            self.star_mass = float(mass_table[lookup_key][star_class_col_num])
+
+        except Exception as e:
+
+            logging.info(f"A star mass error occurred: {e} {self.star_class} {self.star_type} {self.star_subtype}")
+            self.star_mass = -1
+
     def get_star_mass(self):
         # Returns string value of the star mass
         if self.star_class == 'BD':
@@ -394,18 +406,16 @@ class Star:
 
         elif self.star_class == 'D':
             self.get_white_dwarf_mass()
-
         else:
-            try:
-                mass_table = gf.csv_to_dict_of_lists('stellar_mass_temperature.csv')
-                lookup_key = self.star_type + str(self.star_subtype)
-                star_class_col_num = lu.star_class_col_num_dy[self.star_class]
-                self.star_mass = float(mass_table[lookup_key][star_class_col_num])
+            self.get_main_star_mass()
 
-            except Exception as e:
-
-                logging.info(f"A star mass error occurred: {e} {self.star_class} {self.star_type} {self.star_subtype}")
-                self.star_mass = -1
+    def get_brown_star_temperature(self):
+        if self.star_mass >= 0.070: return 2400
+        elif self.star_mass >= 0.055: return 1850
+        elif self.star_mass >= 0.045: return 1300
+        elif self.star_mass >= 0.035: return 900
+        elif self.star_mass >= 0.019: return 550
+        else: return 300
 
     def get_star_temperature(self):
         # Returns the star temperature after receiving star details
@@ -417,8 +427,21 @@ class Star:
             self.star_temperature = 8000
             logging.info('White Dwarf temperature assumed until table can be created')
         elif self.star_class == 'BD':
-            self.star_temperature = 1200
-            logging.info('Brown Dwarf temperature assumed until table can be created')
+            self.get_brown_star_temperature()
+
+    def get_brown_star_diameter(self):
+        if self.star_mass >= 0.070:
+            return 0.100
+        elif self.star_mass >= 0.055:
+            return 0.600
+        elif self.star_mass >= 0.045:
+            return 0.050
+        elif self.star_mass >= 0.035:
+            return 0.040
+        elif self.star_mass >= 0.019:
+            return 0.025
+        else:
+            return 0.013
 
     def get_star_diameter(self):
         # Returns the star diameter after receiving star details
@@ -432,8 +455,7 @@ class Star:
                 self.star_diameter = .017
                 logging.info('White Dwarf diameter assumed until table can be created')
             elif self.star_class == 'BD':
-                self.star_diameter = .1
-                logging.info('Brown Dwarf diameter assumed until table can be created')
+                self.get_brown_star_diameter()
             else:
                 logging.info(f"A star diameter if else error occurred")
                 self.star_diameter = -1
@@ -444,7 +466,7 @@ class Star:
     def get_star_luminosity(self):
         # Returns the star luminosity after receiving star details
         try:
-            self.star_luminosity = round((self.star_diameter ** 2) * ((self.star_temperature / 5772) ** 4),3)
+            self.star_luminosity = round((self.star_diameter ** 2) * ((self.star_temperature / 5772) ** 4),8)
 
         except Exception as e:
             logging.info(f"A star luminosity error occurred: {e}")
@@ -646,6 +668,14 @@ class Star:
             table_result=str(self.orbit_number))
         du.insert_dice_rolls(self.db_name, dice_info)
 
+    def get_secondary_orbit_number(self):
+        if self.orbit_class == 'far': self.get_far_secondary_orbit_number()
+        elif self.orbit_class == 'near':  self.get_near_secondary_orbit_number()
+        elif self.orbit_class == 'close': self.get_close_secondary_orbit_number()
+        else:
+            logging.info('Secondary Orbit Number error')
+            self.orbit_number = -1
+
     def get_orbit_au(self):
         if self.orbit_number < 1:
             self.orbit_au = lu.orbit_number_to_au_dy[1] * self.orbit_number
@@ -718,23 +748,10 @@ class Star:
         self.orbit_max = self.orbit_au * (1 + self.orbit_eccentricity)
 
     def get_companion_orbit_period(self, main):
-        au = self.orbit_au
-        return calculate_orbit_period(au, main.star_mass, self.star_mass)
+        self.orbit_period =  round(math.sqrt(self.orbit_au **3/(main.star_mass + self.star_mass))*365.25,2)
 
-
-def calculate_orbit_period(au, large_mass, small_mass):
-    logging.info(f'orbit period {au}, {large_mass}, {small_mass}')
-    return round(math.sqrt(au**3/(large_mass + small_mass))*365.25,2)
-
-
-def calculate_secondary_orbit_period(larger_star: Star, smaller_star: Star):
-    au = smaller_star.orbit_au
-    return calculate_orbit_period(au, larger_star.binary_mass, smaller_star.star_mass)
-
-
-def calculate_companion_orbit_period(larger_star: Star, smaller_star: Star):
-    au = smaller_star.orbit_au
-    return calculate_orbit_period(au, larger_star.star_mass, smaller_star.star_mass)
+    def get_secondary_orbit_period(self, main):
+        self.orbit_period = round(math.sqrt(self.orbit_au **3/(main.binary_mass + self.star_mass))*365.25,2)
 
 
 def is_hotter(companion: Star, primary: Star):

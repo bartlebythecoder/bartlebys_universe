@@ -44,7 +44,6 @@ def check_multiple_star(star: bodies.Star):
     return dice_info.table_result
 
 
-
 def find_secondary_category(star: bodies.Star):
     chart = lu.companion_star_category_dy
     die_mod = 0
@@ -83,7 +82,7 @@ def build_secondary_star(main: bodies.Star, parms: bodies.Parameters, secondary_
     secondary.get_star_luminosity()
     secondary.get_non_primary_star_age()
 
-    secondary.get_companion_orbit_number(main)
+    secondary.get_secondary_orbit_number()
     if main.designation == 'Aa':
         secondary.stars_orbited = 2
     else:
@@ -93,6 +92,7 @@ def build_secondary_star(main: bodies.Star, parms: bodies.Parameters, secondary_
     secondary.get_orbit_au()
     secondary.get_orbit_min()
     secondary.get_orbit_max()
+    secondary.get_secondary_orbit_period(main)
 
     return secondary
 
@@ -143,6 +143,7 @@ def build_companion_star(main: bodies.Star, parms: bodies.Parameters):
     companion.get_orbit_au()
     companion.get_orbit_min()
     companion.get_orbit_max()
+    companion.get_companion_orbit_period(main)
 
     return companion
 
@@ -153,7 +154,7 @@ def process_secondary_star_loop(system: bodies.System, primary_star: bodies.Star
     designation_index = 0
     for each_secondary in secondary_list:
         if check_multiple_star(primary_star):
-            if each_secondary != 'close' and primary_star.star_class not in ['Ia', 'Ib', 'II', 'III']:
+            if not (each_secondary == 'close' and primary_star.star_class in ['Ia', 'Ib', 'II', 'III']):
                 secondary_companion = None
                 system.stars_in_system += 1
                 logging.info(f'{primary_star.location} {each_secondary} {designation_list[designation_index]} ')
@@ -168,28 +169,28 @@ def process_secondary_star_loop(system: bodies.System, primary_star: bodies.Star
                     system.stars_in_system += 1
                     secondary_companion = build_companion_star(secondary, parms)
                     log_star(secondary_companion)
-                    secondary.update_from_companion(secondary_companion)
-                    secondary_companion.get_companion_orbit_period(primary_star)
+                    secondary.update_from_companion(secondary_companion)   # updates binary mass and designation
+
                     if secondary_companion.star_age > system.system_age:
                         system.system_age = secondary_companion.star_age
 
                 du.update_star_tables(secondary, secondary_companion)
                 designation_index += 1
-
+            else:
+                logging.info(f"Failed secondary {each_secondary} {primary_star.star_class}")
 
 def build_primary_star(system, parms):
-    add_stars_in_system = 0
-    add_stars_orbited = 0
+
     companion_star = None
     primary_star = bodies.Star(parms, system.location)
+    system.system_age = primary_star.star_age
     log_star(primary_star)
     if check_multiple_star(primary_star):
-        add_stars_in_system += 1
+        system.stars_in_system += 1
         companion_star = build_companion_star(primary_star, parms)
         log_star(companion_star)
-        primary_star.update_from_companion(companion_star)
-        companion_star.get_companion_orbit_period(primary_star)
-        add_stars_orbited += 1
+        primary_star.update_from_companion(companion_star)  # updates binary mass and designation
+
     du.update_star_tables(primary_star, companion_star)
     return primary_star
 
@@ -197,6 +198,24 @@ def build_primary_star(system, parms):
 def build_stars(system: bodies.System, parms: bodies.Parameters):
     primary_star = build_primary_star(system, parms)
     process_secondary_star_loop(system, primary_star, parms)
+
+
+def system_present(parms: bodies.Parameters, location: str):
+    # returns a True or False if a system is present based on the frequency provided
+    dice = gf.roll_dice(1)
+    dice_info = bodies.DiceRoll
+    dice_info.location = location
+    dice_info.number = 1
+    dice_info.reason = 'system present'
+    dice_info.dice_result = dice
+    if dice <= parms.frequency:
+        dice_info.table_result = True
+    else:
+        dice_info.table_result = False
+
+    du.insert_dice_rolls(parms.db_name, dice_info)
+
+    return bodies.DiceRoll.table_result
 
 
 def build_system(parms: bodies.Parameters, location, subsector):
@@ -208,5 +227,6 @@ def build_system(parms: bodies.Parameters, location, subsector):
         system_age=0,
         stars_in_system=1
     )
-    return new_system
+    build_stars(new_system, parms)
+    du.insert_system_details(new_system)
 
