@@ -1,4 +1,5 @@
 import logging
+import copy
 
 import bodies
 import database_utils as du
@@ -61,7 +62,7 @@ def find_secondary_category(star: bodies.Star):
     return dice_info.table_result
 
 
-def build_secondary_star(main: bodies.Star, parms: bodies.Parameters, secondary_type, designation, stars_orbited):
+def build_secondary_star(main: bodies.Star, parms: bodies.Parameters, secondary_type, designation):
     # Returns a companion star based on details of the star given (the main to the companion)
     secondary_category = find_secondary_category(main)
     logging.info(f'Secondary found.')
@@ -69,10 +70,11 @@ def build_secondary_star(main: bodies.Star, parms: bodies.Parameters, secondary_
 
     secondary.designation = designation
     secondary.star_class = main.star_class
-    secondary.get_non_primary_star_type(main, secondary_type)
-    secondary.get_non_primary_star_subtype(main, secondary)
+    secondary.get_non_primary_star_type(main, secondary_category)
+    secondary.get_non_primary_star_subtype(main, secondary_category)
     secondary.fix_star_subtype_errors()
     secondary.orbit_class = secondary_type
+    secondary.generation_type = secondary_category
 
     secondary.get_star_mass()
     secondary.binary_mass = secondary.star_mass
@@ -82,7 +84,11 @@ def build_secondary_star(main: bodies.Star, parms: bodies.Parameters, secondary_
     secondary.get_non_primary_star_age()
 
     secondary.get_companion_orbit_number(main)
-    secondary.stars_orbited = 1
+    if main.designation == 'Aa':
+        secondary.stars_orbited = 2
+    else:
+        secondary.stars_orbited = 1
+
     secondary.get_orbit_eccentricity()
     secondary.get_orbit_au()
     secondary.get_orbit_min()
@@ -111,8 +117,9 @@ def find_companion_category(star: bodies.Star):
 def build_companion_star(main: bodies.Star, parms: bodies.Parameters):
     # Returns a companion star based on details of the star given (the main to the companion)
     companion_category = find_companion_category(main)
+
     logging.info(f'Companion found.  It is a {companion_category}')
-    companion = bodies.Star(parms, main.location)
+    companion = copy.deepcopy(main)
 
     companion.designation += 'b'
 
@@ -121,6 +128,7 @@ def build_companion_star(main: bodies.Star, parms: bodies.Parameters):
     companion.get_non_primary_star_subtype(main, companion_category)
     companion.fix_star_subtype_errors()
     companion.orbit_class = 'companion'
+    companion.generation_type = companion_category
 
     companion.get_star_mass()
     companion.binary_mass = companion.star_mass
@@ -139,11 +147,41 @@ def build_companion_star(main: bodies.Star, parms: bodies.Parameters):
     return companion
 
 
-def build_primary_star(location, parms):
+def process_secondary_star_loop(system: bodies.System, primary_star: bodies.Star, parms: bodies.Parameters):
+    secondary_list = ['close', 'near', 'far']
+    designation_list = ['B', 'C', 'D', 'X']
+    designation_index = 0
+    for each_secondary in secondary_list:
+        if check_multiple_star(primary_star):
+            if each_secondary != 'close' and primary_star.star_class not in ['Ia', 'Ib', 'II', 'III']:
+                secondary_companion = None
+                system.stars_in_system += 1
+                logging.info(f'{primary_star.location} {each_secondary} {designation_list[designation_index]} ')
+                secondary = build_secondary_star(primary_star,
+                                                 parms,
+                                                 each_secondary,
+                                                 designation_list[designation_index])
+                if secondary.star_age > system.system_age:
+                    system.system_age = secondary.star_age
+
+                if check_multiple_star(secondary):
+                    system.stars_in_system += 1
+                    secondary_companion = build_companion_star(secondary, parms)
+                    log_star(secondary_companion)
+                    secondary.update_from_companion(secondary_companion)
+                    secondary_companion.get_companion_orbit_period(primary_star)
+                    if secondary_companion.star_age > system.system_age:
+                        system.system_age = secondary_companion.star_age
+
+                du.update_star_tables(secondary, secondary_companion)
+                designation_index += 1
+
+
+def build_primary_star(system, parms):
     add_stars_in_system = 0
     add_stars_orbited = 0
     companion_star = None
-    primary_star = bodies.Star(parms, location)
+    primary_star = bodies.Star(parms, system.location)
     log_star(primary_star)
     if check_multiple_star(primary_star):
         add_stars_in_system += 1
@@ -153,57 +191,22 @@ def build_primary_star(location, parms):
         companion_star.get_companion_orbit_period(primary_star)
         add_stars_orbited += 1
     du.update_star_tables(primary_star, companion_star)
-
-    return primary_star, add_stars_in_system, add_stars_orbited
-
-
-def process_secondary_star_loop(primary_star: bodies.Star, parms:bodies.Parameters,
-                                stars_in_system: int, stars_orbited: int):
-    secondary_list = ['close', 'near', 'far']
-    designation_list = ['B', 'C', 'D', 'X']
-    designation_index = 0
-    for each_secondary in secondary_list:
-        if check_multiple_star(primary_star):
-            if each_secondary != 'close' and primary_star.star_class not in ['Ia', 'Ib', 'II', 'III']:
-                secondary_companion = None
-                stars_in_system += 1
-                logging.info(f'{primary_star.location} {each_secondary} {designation_list[designation_index]} ')
-                secondary = build_secondary_star(primary_star,
-                                                 parms,
-                                                 each_secondary,
-                                                 designation_list[designation_index],
-                                                 stars_orbited)
-
-                # if check_multiple_star(secondary):
-                #     stars_in_system += 1
-                #     secondary_companion, secondary = update_companion_details(secondary)
-
-                du.update_star_tables(secondary, secondary_companion)
-                designation_index += 1
+    return primary_star
 
 
-def build_stars(each_location: str, stars_in_system: int, parms: bodies.Parameters):
-    stars_orbited = 1
-    stars_in_system = 1
-
-    primary_star, add_stars_in_system, add_stars_orbited = build_primary_star(each_location, parms)
-
-    stars_orbited += add_stars_orbited
-    stars_in_system += add_stars_in_system
-
-    process_secondary_star_loop(primary_star, parms, stars_in_system, stars_orbited)
-
-    return primary_star, stars_in_system
+def build_stars(system: bodies.System, parms: bodies.Parameters):
+    primary_star = build_primary_star(system, parms)
+    process_secondary_star_loop(system, primary_star, parms)
 
 
-def build_system(primary: bodies.Star, stars_in_system: int, subsector: str, parms: bodies.Parameters):
+def build_system(parms: bodies.Parameters, location, subsector):
     new_system = bodies.System(
         db_name=parms.db_name,
         build=parms.build,
-        location=primary.location,
+        location=location,
         subsector=subsector,
-        system_age=primary.star_age,
-        stars_in_system=stars_in_system
+        system_age=0,
+        stars_in_system=1
     )
+    return new_system
 
-    du.insert_system_details(new_system)

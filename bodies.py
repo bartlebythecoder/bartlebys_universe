@@ -46,7 +46,7 @@ class Star:
     designation: str
     orbit_category: str
     orbit_class: str
-    companion_type: str
+    generation_type: str
     orbit_number: float
     stars_orbited: int
     orbit_eccentricity: float
@@ -77,7 +77,7 @@ class Star:
         self.designation = 'A'
         self.orbit_category = 'A'
         self.orbit_class = 'primary'
-        self.companion_type = 'primary'
+        self.generation_type = 'primary'
         self.orbit_number = 0
         self.stars_orbited = 0
         self.orbit_eccentricity = 0
@@ -226,7 +226,7 @@ class Star:
             self.star_class = 'BD'
 
     def get_non_primary_star_type(self, main, companion_category):
-        self.companion_type = companion_category
+
         if companion_category == 'twin':
             self.star_type = main.star_type
 
@@ -294,6 +294,9 @@ class Star:
         elif companion_category == 'other':
             self.get_star_subtype()
 
+        if main.star_subtype > self.star_subtype:
+            self.star_subtype = main.star_subtype
+
     def get_giant_star_class(self):
         # if the original get_star_class returns a giant star, use this function to return the class
         dice = gf.roll_dice(2)
@@ -339,10 +342,6 @@ class Star:
             if self.star_type in ['A','F']:
                 self.star_class = 'G'
                 self.star_subtype = 0
-
-
-
-
 
     def get_brown_dwarf_mass(self):
         dice_roll_1 = gf.roll_dice(1)
@@ -740,14 +739,20 @@ def calculate_companion_orbit_period(larger_star: Star, smaller_star: Star):
 
 def is_hotter(companion: Star, primary: Star):
     type_list = ['O', 'B', 'A', 'F', 'G', 'K', 'M']
+    logging.info(f'Checking if companion is hotter than main')
     try:
         companion_index = type_list.index(companion.star_type)
         primary_index = type_list.index(primary.star_type)
+        logging.info(f' Type Indicies {companion_index} {primary_index}')
+        logging.info(f' Subtypes {companion.star_subtype} {primary.star_subtype}')
         if companion_index > primary_index:
+            logging.info('False. Companion Index > Primary Index')
             return False
-        elif companion_index == primary_index and companion.star_subtype > primary.star_subtype:
+        elif companion_index == primary_index and companion.star_subtype < primary.star_subtype:
+            logging.info('False. Companion Index = Primary Index and Companion Subtype < Primary Subtype')
             return False
         else:
+            logging.info('True')
             return True
 
     except ValueError:
