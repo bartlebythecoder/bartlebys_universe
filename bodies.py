@@ -409,13 +409,39 @@ class Star:
         else:
             self.get_main_star_mass()
 
-    def get_brown_star_temperature(self):
-        if self.star_mass >= 0.070: return 2400
-        elif self.star_mass >= 0.055: return 1850
-        elif self.star_mass >= 0.045: return 1300
-        elif self.star_mass >= 0.035: return 900
-        elif self.star_mass >= 0.019: return 550
-        else: return 300
+    def get_white_dwarf_temperature(self):
+        if self.star_age <= 0.05:
+            base_temp = 100000
+        elif self.star_age <= 0.25:
+            base_temp= 25000
+        elif self.star_age <= 0.75:
+            base_temp = 10000
+        elif self.star_age <= 1.25:
+            base_temp = 8000
+        elif self.star_age <= 2.0:
+            base_temp = 7000
+        elif self.star_age <= 3.75:
+            base_temp = 5500
+        elif self.star_age <= 7.5:
+            base_temp = 5000
+        elif self.star_age <= 11.5:
+            base_temp = 4000
+        else:
+            base_temp = 3800
+        self.star_temperature = base_temp * self.star_mass / 0.6
+
+    def get_brown_dwarf_temperature(self):
+        if self.star_mass >= 0.070:
+            self.star_temperature = 2400
+        elif self.star_mass >= 0.055:
+            self.star_temperature = 1850
+        elif self.star_mass >= 0.045:
+            self.star_temperature = 1300
+        elif self.star_mass >= 0.035:
+            self.star_temperature = 900
+        elif self.star_mass >= 0.019:
+            self.star_temperature = 550
+        else: self.star_temperature = 300
 
     def get_star_temperature(self):
         # Returns the star temperature after receiving star details
@@ -424,24 +450,26 @@ class Star:
             lookup_key = self.star_type + str(self.star_subtype)
             self.star_temperature = float(mass_table[lookup_key][7])
         elif self.star_class == 'D':
-            self.star_temperature = 8000
-            logging.info('White Dwarf temperature assumed until table can be created')
+            self.get_white_dwarf_temperature()
         elif self.star_class == 'BD':
-            self.get_brown_star_temperature()
+            self.get_brown_dwarf_temperature()
 
-    def get_brown_star_diameter(self):
+    def get_white_dwarf_diameter(self):
+        self.star_diameter = (1/self.star_mass) * 0.01
+
+    def get_brown_dwarf_diameter(self):
         if self.star_mass >= 0.070:
-            return 0.100
+            self.star_diameter = 0.100
         elif self.star_mass >= 0.055:
-            return 0.600
+            self.star_diameter = 0.600
         elif self.star_mass >= 0.045:
-            return 0.050
+            self.star_diameter = 0.050
         elif self.star_mass >= 0.035:
-            return 0.040
+            self.star_diameter = 0.040
         elif self.star_mass >= 0.019:
-            return 0.025
+            self.star_diameter = 0.025
         else:
-            return 0.013
+            self.star_diameter = 0.013
 
     def get_star_diameter(self):
         # Returns the star diameter after receiving star details
@@ -452,10 +480,9 @@ class Star:
                 lookup_key = self.star_type + str(self.star_subtype)
                 self.star_diameter = float(diameter_table[lookup_key][star_class_col_num])
             elif self.star_class == 'D':
-                self.star_diameter = .017
-                logging.info('White Dwarf diameter assumed until table can be created')
+                self.get_white_dwarf_diameter()
             elif self.star_class == 'BD':
-                self.get_brown_star_diameter()
+                self.get_brown_dwarf_diameter()
             else:
                 logging.info(f"A star diameter if else error occurred")
                 self.star_diameter = -1
@@ -565,7 +592,8 @@ class Star:
             self.star_age = -99
 
     def get_white_dwarf_age(self):
-        self.get_small_star_age()
+        # Unclear instructions
+        # self.get_small_star_age() # skipping this for now
         mass = random.randint(1,3)
         dice_info = DiceRoll(
             location=self.location,
@@ -574,8 +602,8 @@ class Star:
             dice_result=mass,
             table_result=str(mass))
         du.insert_dice_rolls(self.db_name, dice_info)
-        star_final_age = round((10/mass ** 2.5) * (1 + (1 / (4 + mass)) + (1 / (10 * mass ** 3))),2)
-        self.star_age += star_final_age
+        star_final_age = round((10/mass ** 2.5) * (1 + (1 / (4 + mass)) + (1 / (10 * mass ** 3))), 2)
+        self.star_age = star_final_age
 
     def get_non_primary_star_age(self):
         if self.star_class not in ['BD', 'D']:

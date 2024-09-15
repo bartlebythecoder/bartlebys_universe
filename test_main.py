@@ -12,9 +12,13 @@ logging.basicConfig(
     format ='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-parms = Parameters('brock_3.db', 0, 2, 3)
-random.seed(parms.random_seed)
+parms = Parameters(
+    db_name='brock_3.db',
+    build=0,
+    frequency=2,
+    random_seed=3)
 
+random.seed(parms.random_seed)
 du.create_sql_tables(parms)
 subsector_dy, location_list = gf.get_location_details()
 

@@ -77,10 +77,11 @@ def build_secondary_star(main: bodies.Star, parms: bodies.Parameters, secondary_
 
     secondary.get_star_mass()
     secondary.binary_mass = secondary.star_mass
-    secondary.get_star_temperature()
-    secondary.get_star_diameter()
-    secondary.get_star_luminosity()
     secondary.get_non_primary_star_age()
+
+    secondary.get_star_diameter()
+    secondary.get_star_temperature()
+    secondary.get_star_luminosity()
 
     secondary.get_secondary_orbit_number()
     if main.designation == 'Aa':
@@ -132,10 +133,11 @@ def build_companion_star(main: bodies.Star, parms: bodies.Parameters):
 
     companion.get_star_mass()
     companion.binary_mass = companion.star_mass
-    companion.get_star_temperature()
-    companion.get_star_diameter()
-    companion.get_star_luminosity()
     companion.get_non_primary_star_age()
+
+    companion.get_star_diameter()
+    companion.get_star_temperature()
+    companion.get_star_luminosity()
 
     companion.get_companion_orbit_number(main)
     companion.stars_orbited = 1
