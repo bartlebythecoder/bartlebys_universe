@@ -2,6 +2,7 @@ import random
 import csv
 import string
 
+
 import lookup_tables as lu
 
 
@@ -61,3 +62,9 @@ def get_location_details():
 
     location_list.sort()
     return subsector_dy, location_list
+
+
+
+
+
+

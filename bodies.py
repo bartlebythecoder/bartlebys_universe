@@ -593,7 +593,7 @@ class Star:
 
     def get_white_dwarf_age(self):
         # Unclear instructions
-        # self.get_small_star_age() # skipping this for now
+        self.get_small_star_age() # skipping this for now
         mass = random.randint(1,3)
         dice_info = DiceRoll(
             location=self.location,
@@ -603,7 +603,7 @@ class Star:
             table_result=str(mass))
         du.insert_dice_rolls(self.db_name, dice_info)
         star_final_age = round((10/mass ** 2.5) * (1 + (1 / (4 + mass)) + (1 / (10 * mass ** 3))), 2)
-        self.star_age = star_final_age
+        self.star_age += star_final_age
 
     def get_non_primary_star_age(self):
         if self.star_class not in ['BD', 'D']:
