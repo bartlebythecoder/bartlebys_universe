@@ -9,7 +9,12 @@ def create_system_details_table(db_name: str):
         location TEXT,
         subsector TEXT,
         system_age REAL,
-        stars_in_system INT
+        primary_star_class TEXT,
+        number_of_stars_in_system INT,
+        stars_in_system TEXT,
+        number_of_gas_giants INT,
+        number_of_planetoid_belts INT,
+        number_of_terrestrial_planets INT
     )
     '''
 
@@ -48,10 +53,7 @@ def create_star_details_table(db_name: str):
          star_diameter REAL,
          star_luminosity REAL,
          star_age REAL,
-         gas_giants INTEGER,
-         planetoid_belts INTEGER,
-         terrestrial_planets INTEGER,
-         minimal_orbit_number INTEGER,
+         minimum_allowable_orbit_number REAL,
          habitable_zone_center INTEGER)
     '''
 
@@ -91,14 +93,24 @@ def insert_system_details(system_details: object):
     (location,
     subsector,
     system_age,
-    stars_in_system)
-    VALUES (?,?,?,?)
+    primary_star_class,
+    number_of_stars_in_system,
+    stars_in_system,
+    number_of_gas_giants,
+    number_of_planetoid_belts,
+    number_of_terrestrial_planets)
+    VALUES (?,?,?,?,?,?,?,?,?)
     '''
     values_to_insert = (
         system_details.location,
         system_details.subsector,
         system_details.system_age,
-        system_details.stars_in_system
+        system_details.primary_star_class,
+        system_details.number_of_stars_in_system,
+        str(system_details.stars_in_system),
+        system_details.number_of_gas_giants,
+        system_details.number_of_planetoid_belts,
+        system_details.number_of_terrestrial_planets
     )
 
     conn = sqlite3.connect(system_details.db_name)
@@ -132,8 +144,9 @@ def insert_star_details(star_details: object):
     star_temperature,
     star_diameter,
     star_luminosity,
-    star_age)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    star_age,
+    minimum_allowable_orbit_number)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     '''
     values_to_insert = (
         star_details.location,
@@ -157,6 +170,7 @@ def insert_star_details(star_details: object):
         star_details.star_diameter,
         star_details.star_luminosity,
         star_details.star_age,
+        star_details.minimum_allowable_orbit_number
 
 
         )

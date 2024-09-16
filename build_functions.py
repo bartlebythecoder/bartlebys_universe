@@ -158,7 +158,7 @@ def process_secondary_star_loop(system: bodies.System, primary_star: bodies.Star
         if check_multiple_star(primary_star):
             if not (each_secondary == 'close' and primary_star.star_class in ['Ia', 'Ib', 'II', 'III']):
                 secondary_companion = None
-                system.stars_in_system += 1
+                system.number_of_stars_in_system += 1
                 logging.info(f'{primary_star.location} {each_secondary} {designation_list[designation_index]} ')
                 secondary = build_secondary_star(primary_star,
                                                  parms,
@@ -166,30 +166,38 @@ def process_secondary_star_loop(system: bodies.System, primary_star: bodies.Star
                                                  designation_list[designation_index])
                 if secondary.star_age > system.system_age:
                     system.system_age = secondary.star_age
+                system.stars_in_system.append(secondary.star_class)
 
                 if check_multiple_star(secondary):
-                    system.stars_in_system += 1
+                    system.number_of_stars_in_system += 1
                     secondary_companion = build_companion_star(secondary, parms)
+
                     log_star(secondary_companion)
                     secondary.update_from_companion(secondary_companion)   # updates binary mass and designation
 
                     if secondary_companion.star_age > system.system_age:
                         system.system_age = secondary_companion.star_age
+                    system.stars_in_system.append(secondary.star_class)
 
                 du.update_star_tables(secondary, secondary_companion)
                 designation_index += 1
             else:
                 logging.info(f"Failed secondary {each_secondary} {primary_star.star_class}")
 
+
 def build_primary_star(system, parms):
 
     companion_star = None
     primary_star = bodies.Star(parms, system.location)
     system.system_age = primary_star.star_age
+    system.primary_star_class = primary_star.star_class
+    system.stars_in_system.append(primary_star.star_class)
+    system.number_of_stars_in_system = 1
     log_star(primary_star)
     if check_multiple_star(primary_star):
-        system.stars_in_system += 1
         companion_star = build_companion_star(primary_star, parms)
+        system.number_of_stars_in_system += 1
+        system.stars_in_system.append(companion_star.star_class)
         log_star(companion_star)
         primary_star.update_from_companion(companion_star)  # updates binary mass and designation
 
@@ -227,8 +235,16 @@ def build_system(parms: bodies.Parameters, location, subsector):
         location=location,
         subsector=subsector,
         system_age=0,
-        stars_in_system=1
+        primary_star_class='X',
+        number_of_stars_in_system=0,
+        stars_in_system=[],
+        number_of_gas_giants=-1,
+        number_of_planetoid_belts=-1,
+        number_of_terrestrial_planets=-1
     )
     build_stars(new_system, parms)
+    new_system.get_number_of_gas_giants()
+    new_system.get_number_of_planetoid_belts()
+    new_system.get_number_of_terrestrial_planets()
     du.insert_system_details(new_system)
 

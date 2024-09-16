@@ -35,7 +35,173 @@ class System:
     location: str
     subsector: str
     system_age: float
-    stars_in_system: int
+    primary_star_class: str
+    number_of_stars_in_system: int
+    stars_in_system: list
+    number_of_gas_giants: int
+    number_of_planetoid_belts: int
+    number_of_terrestrial_planets: int
+
+    def gas_giant_check(self):
+        die_roll = gf.roll_dice(1)
+
+        dice_info = DiceRoll(
+            location=self.location,
+            number=1,
+            reason='checking for gg',
+            dice_result=die_roll,
+            table_result=str(die_roll))
+        du.insert_dice_rolls(self.db_name, dice_info)
+        if die_roll >= 2:
+            return True
+        else:
+            return False
+
+    def get_gas_giant_dm(self):
+        dm = 0
+        if self.primary_star_class == 'V' and self.number_of_stars_in_system == 1:
+            dm += 1
+
+        if self.primary_star_class == 'BD':
+            dm -= 2
+
+        if self.primary_star_class == 'D':
+            dm -= 2
+
+        count_post_stellars = self.stars_in_system.count('D')
+        dm -= count_post_stellars
+
+        if self.number_of_stars_in_system >= 4:
+            dm -= 1
+
+        return dm
+
+    def get_number_of_gas_giants(self):
+        if self.gas_giant_check():
+            dm = self.get_gas_giant_dm()
+
+            dice_roll = gf.roll_dice(2)
+            dice_roll += dm
+            dice_info = DiceRoll(
+                location=self.location,
+                number=2,
+                reason='gg quantity',
+                dice_result=dice_roll,
+                table_result=str(dice_roll))
+            du.insert_dice_rolls(self.db_name, dice_info)
+
+            if dice_roll <= 4:
+                self.number_of_gas_giants = 1
+            elif dice_roll <=6:
+                self.number_of_gas_giants = 2
+            elif dice_roll <= 8:
+                self.number_of_gas_giants = 3
+            elif dice_roll <= 11:
+                self.number_of_gas_giants = 4
+            elif dice_roll == 12:
+                self.number_of_gas_giants = 5
+            elif dice_roll > 12:
+                self.number_of_gas_giants = 6
+        else:
+            self.number_of_gas_giants = 0
+
+    def gas_planetoid_belt_check(self):
+        dice_roll = gf.roll_dice(2)
+
+        dice_info = DiceRoll(
+            location=self.location,
+            number=2,
+            reason='checking for belt',
+            dice_result=dice_roll,
+            table_result=str(dice_roll))
+        du.insert_dice_rolls(self.db_name, dice_info)
+        if dice_roll >= 8:
+            return True
+        else:
+            return False
+
+    def get_planetoid_belt_dm(self):
+        dm = 0
+        if self.number_of_gas_giants >= 1:
+            dm += 1
+
+        if self.primary_star_class == 'D':
+            dm += 1
+
+        count_post_stellars = self.stars_in_system.count('D')
+        dm += count_post_stellars
+
+        if self.number_of_stars_in_system >= 2:
+            dm += 1
+
+        return dm
+
+    def get_number_of_planetoid_belts(self):
+        if self.gas_planetoid_belt_check():
+            dm = self.get_planetoid_belt_dm()
+
+            dice_roll = gf.roll_dice(2)
+            dice_roll += dm
+            dice_info = DiceRoll(
+                location=self.location,
+                number=2,
+                reason='belt quantity',
+                dice_result=dice_roll,
+                table_result=str(dice_roll))
+            du.insert_dice_rolls(self.db_name, dice_info)
+
+            if dice_roll <= 6:
+                self.number_of_planetoid_belts = 1
+            elif dice_roll <= 11:
+                self.number_of_planetoid_belts = 2
+            elif dice_roll >= 12:
+                self.number_of_planetoid_belts = 3
+        else:
+            self.number_of_planetoid_belts = 0
+
+    def get_number_of_terrestrial_planets(self):
+        dm = -2
+        count_post_stellars = self.stars_in_system.count('D')
+        dm -= count_post_stellars
+
+        first_roll = gf.roll_dice(2)
+        first_roll += dm
+        dice_info = DiceRoll(
+            location=self.location,
+            number=2,
+            reason='planet quantity',
+            dice_result=first_roll,
+            table_result=str(first_roll))
+        du.insert_dice_rolls(self.db_name, dice_info)
+
+        if first_roll < 3:
+            second_roll = random.randint(1, 3) + 2
+
+            dice_info = DiceRoll(
+                location=self.location,
+                number=0,
+                reason='d3 + 2 reroll',
+                dice_result=second_roll,
+                table_result=str(second_roll ))
+            du.insert_dice_rolls(self.db_name, dice_info)
+
+            self.number_of_terrestrial_planets = second_roll
+
+        else:
+
+            third_roll = random.randint(1, 3) - 1
+
+            dice_info = DiceRoll(
+                location=self.location,
+                number=0,
+                reason='d3 + 2 reroll',
+                dice_result=third_roll ,
+                table_result=str(third_roll ))
+            du.insert_dice_rolls(self.db_name, dice_info)
+
+            self.number_of_terrestrial_planets = first_roll + third_roll
+
+
 
 
 @dataclass
@@ -63,10 +229,7 @@ class Star:
     star_diameter: float
     star_luminosity: float
     star_age: float
-    gas_giants: int
-    planetoid_belts: int
-    terrestrial_planets: int
-    minimal_orbit_number: int
+    minimum_allowable_orbit_number: float
     habitable_zone_center: int
 
     def __init__(self, parms: Parameters, each_location: str):
@@ -101,7 +264,7 @@ class Star:
         self.gas_giants = UNDEFINED_VALUE
         self.planetoid_belts = UNDEFINED_VALUE
         self.terrestrial_planets = UNDEFINED_VALUE
-        self.minimal_orbit_number = UNDEFINED_VALUE
+        self.minimum_allowable_orbit_number = UNDEFINED_VALUE
         self.habitable_zone_center = UNDEFINED_VALUE
 
         # Call methods to populate attributes based on logic
@@ -118,6 +281,7 @@ class Star:
         self.get_star_diameter()
         self.get_star_luminosity()
         self.get_star_age()
+        self.get_minimum_allowable_orbit_number()
 
     def update_from_companion(self, companion):
         # Update binary_mass and designation due to a companion being added
@@ -776,10 +940,16 @@ class Star:
         self.orbit_max = self.orbit_au * (1 + self.orbit_eccentricity)
 
     def get_companion_orbit_period(self, main):
-        self.orbit_period =  round(math.sqrt(self.orbit_au **3/(main.star_mass + self.star_mass))*365.25,2)
+        self.orbit_period =  round(math.sqrt(self.orbit_au **3/(main.star_mass + self.star_mass))*365.25, 2)
 
     def get_secondary_orbit_period(self, main):
-        self.orbit_period = round(math.sqrt(self.orbit_au **3/(main.binary_mass + self.star_mass))*365.25,2)
+        self.orbit_period = round(math.sqrt(self.orbit_au **3/(main.binary_mass + self.star_mass))*365.25, 2)
+
+    def get_minimum_allowable_orbit_number(self):
+        moa_table = gf.csv_to_dict_of_lists('moa.csv')
+        lookup_key = self.star_type + str(self.star_subtype)
+        star_class_col_num = lu.star_class_col_num_dy[self.star_class]
+        self.orbit_number = float(moa_table[lookup_key][star_class_col_num])
 
 
 def is_hotter(companion: Star, primary: Star):
