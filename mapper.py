@@ -3,9 +3,12 @@ from math import sqrt
 
 import lookup_tables as lu
 import math_functions as mf
+import generic_functions as gf
 
 
-#hex_centers = lu.hex_centers_list
+hex_label_dy = lu.subsector_hex_centers_dy
+hex_centers = gf.dict_to_indexed_list(hex_label_dy)
+hexes_chosen = {}
 
 
 def draw_hexagon(canvas, center_x, center_y, size, color="white"):
@@ -22,21 +25,12 @@ def draw_hexagon(canvas, center_x, center_y, size, color="white"):
     ]
     canvas.create_polygon(points, fill=color, outline="black")
 
+
 def draw_hex_grid(canvas, size, grid_width, grid_height):
     """
     Draws a flat-topped hex grid on the canvas.
     """
-    hex_centers_list = []
-    hex_label_dy = {}
-    row_list = ['00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10']
-    column_list = ['00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
-    row_index = 0
     for row in range(grid_height):
-
-        if row_list[row_index] in ['01', '03', '05', '07']:
-            col_index = 1
-        else:
-            col_index = 0
         for col in range(grid_width):
 
             offset_y = col * size * sqrt(3)
@@ -45,25 +39,67 @@ def draw_hex_grid(canvas, size, grid_width, grid_height):
 
             center_x = row * size * 1.5  # Vertical spacing for flat-topped hexes
             center_y = offset_y
-            label = row_list[row_index] + column_list[col_index]
-            print(center_y, center_y, label, row_index, col_index)
-            hex_centers_list.append([[center_x, center_y], label])
-            hex_label_dy[label] = [center_x, center_y]
             draw_hexagon(canvas, center_x, center_y, size)
-            col_index += 1
-        row_index += 1
-    return hex_centers_list, hex_label_dy
+
+
+def create_tooltip(canvas, circle, text):
+    """
+    Creates and binds a tooltip to a given canvas object.
+    """
+    tooltip = tk.Label(canvas, text=text, bg="yellow", relief="solid", borderwidth=1)
+    tooltip.pack_forget()  # Hide initially
+
+    def enter(event):
+        print(f'coords: {canvas.coords(circle)}')
+        x, y = canvas.coords(circle)[0:2]  # Get the center of the circle
+        tooltip.place(x=x + 10, y=y - 10)  # Position tooltip slightly offset from the center
+        print(f'Tooltip placed {x}, {y}')
+
+    def leave(event):
+        tooltip.place_forget()  # Use place_forget to hide the tooltip
+
+    # Bind events to the circle
+    canvas.tag_bind(circle, "<Enter>", enter)
+    canvas.tag_bind(circle, "<Leave>", leave)
+
+    # Also bind the leave event to the tooltip itself
+    tooltip.bind("<Leave>", leave)
+
+
 
 def add_circle(event, hex_centers_list, hex_label_dy):
     """
-    Adds a red circle to the canvas at the clicked coordinates.
+    Adds a red circle to the canvas at the clicked coordinates and associates a tooltip.
     """
     center_x, center_y = event.x, event.y
+    print(f'Hex Centers: {hex_centers_list}')
     new_hex_label = mf.knn_classify(1, hex_centers_list, (center_x, center_y ))
-    print(f'New Hex: {new_hex_label}')
+    print(f'Hex Selected: {new_hex_label}')
     center_x, center_y = hex_label_dy[new_hex_label]
     radius = 10  # Adjust the radius as needed
-    canvas.create_oval(center_x - radius, center_y - radius, center_x + radius, center_y + radius, fill="red")
+    print(f'{hex_label_dy[new_hex_label]}')
+    if new_hex_label not in hexes_chosen:
+        print('This is a new hex')
+
+        circle = canvas.create_oval(center_x - radius, center_y - radius, center_x + radius,
+                                    center_y + radius, fill="red")
+        print(f'Circle:  {circle} ')
+
+        circle_objects = canvas.find_withtag("circle_tag")
+
+        hexes_chosen[new_hex_label] = circle
+
+        # Pass the circle object directly
+        print(f'placing tool tip here:  {hex_label_dy[new_hex_label]}')
+        create_tooltip(canvas, circle, text=f"Hex: {new_hex_label}")
+
+
+    else:
+        print('Hex already created')
+        canvas.delete(hexes_chosen[new_hex_label])
+        del hexes_chosen[new_hex_label]
+
+
 
 
 # Create the main window
@@ -84,9 +120,7 @@ column_count = 11
 cell_size = 30  # Radius of the inscribed circle
 
 # Draw the grid
-hex_centers, hex_label_dy = draw_hex_grid(canvas, cell_size, column_count, row_count)
-# Bind mouse click event
-
+draw_hex_grid(canvas, cell_size, column_count, row_count)
 canvas.bind("<Button-1>", lambda event: add_circle(event, hex_centers, hex_label_dy))
 
 root.mainloop()

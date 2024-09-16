@@ -64,6 +64,17 @@ def get_location_details():
     return subsector_dy, location_list
 
 
+def dict_to_indexed_list(data_dict):
+    """
+    Converts a dictionary into a list of tuples, where each tuple contains a value from the dictionary and its corresponding index.
+
+    Args:
+        data_dict: The dictionary to be transformed.
+
+    Returns:
+        A list of tuples, each containing a value from the dictionary and its index.
+    """
+    return [(value, key) for key, value in data_dict.items()]
 
 
 
