@@ -76,6 +76,13 @@ def dict_to_indexed_list(data_dict):
     """
     return [(value, key) for key, value in data_dict.items()]
 
-
+def calculate_orbit_number_from_au(x):
+    """
+    Calculates the orbit number value based on the fitted exponential function.
+    """
+    a = 0.31  # Coefficient 'a' from the curve_fit result
+    b = 1.51  # Coefficient 'b' from the curve_fit result
+    y = a * b ** x
+    return y
 
 

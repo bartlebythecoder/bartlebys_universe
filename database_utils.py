@@ -14,7 +14,9 @@ def create_system_details_table(db_name: str):
         stars_in_system TEXT,
         number_of_gas_giants INT,
         number_of_planetoid_belts INT,
-        number_of_terrestrial_planets INT
+        number_of_terrestrial_planets INT,
+        minimum_allowable_orbit_number REAL,
+        restricted_orbits TEXT
     )
     '''
 
@@ -37,7 +39,6 @@ def create_star_details_table(db_name: str):
          star_type TEXT,
          star_subtype INTEGER,
          star_class TEXT,
-         orbit_category TEXT,
          orbit_class TEXT,
          generation_type TEXT,
          orbit_number REAL,
@@ -54,6 +55,14 @@ def create_star_details_table(db_name: str):
          star_luminosity REAL,
          star_age REAL,
          minimum_allowable_orbit_number REAL,
+         maximum_allowable_orbit_number REAL,
+         restricted_close_orbit_start REAL,
+         restricted_close_orbit_end REAL,
+         restricted_near_orbit_start REAL,
+         restricted_near_orbit_end REAL,
+         restricted_far_orbit_start REAL,
+         restricted_far_orbit_end REAL,
+         orbit_number_range FLOAT,
          habitable_zone_center INTEGER)
     '''
 
@@ -98,8 +107,10 @@ def insert_system_details(system_details: object):
     stars_in_system,
     number_of_gas_giants,
     number_of_planetoid_belts,
-    number_of_terrestrial_planets)
-    VALUES (?,?,?,?,?,?,?,?,?)
+    number_of_terrestrial_planets,
+    minimum_allowable_orbit_number,
+    restricted_orbits)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?)
     '''
     values_to_insert = (
         system_details.location,
@@ -110,7 +121,9 @@ def insert_system_details(system_details: object):
         str(system_details.stars_in_system),
         system_details.number_of_gas_giants,
         system_details.number_of_planetoid_belts,
-        system_details.number_of_terrestrial_planets
+        system_details.number_of_terrestrial_planets,
+        system_details.minimum_allowable_orbit_number,
+        str(system_details.restricted_orbits)
     )
 
     conn = sqlite3.connect(system_details.db_name)
@@ -129,7 +142,6 @@ def insert_star_details(star_details: object):
     star_type,
     star_subtype,
     star_class,
-    orbit_category,
     orbit_class,
     generation_type,
     orbit_number,
@@ -145,8 +157,16 @@ def insert_star_details(star_details: object):
     star_diameter,
     star_luminosity,
     star_age,
-    minimum_allowable_orbit_number)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    minimum_allowable_orbit_number,
+    maximum_allowable_orbit_number,
+    restricted_close_orbit_start,
+    restricted_close_orbit_end,
+    restricted_near_orbit_start,
+    restricted_near_orbit_end,
+    restricted_far_orbit_start,
+    restricted_far_orbit_end,
+    orbit_number_range)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     '''
     values_to_insert = (
         star_details.location,
@@ -154,7 +174,6 @@ def insert_star_details(star_details: object):
         star_details.star_type,
         star_details.star_subtype,
         star_details.star_class,
-        star_details.orbit_category,
         star_details.orbit_class,
         star_details.generation_type,
         star_details.orbit_number,
@@ -170,9 +189,15 @@ def insert_star_details(star_details: object):
         star_details.star_diameter,
         star_details.star_luminosity,
         star_details.star_age,
-        star_details.minimum_allowable_orbit_number
-
-
+        star_details.minimum_allowable_orbit_number,
+        star_details.maximum_allowable_orbit_number,
+        star_details.restricted_close_orbit_start,
+        star_details.restricted_close_orbit_end,
+        star_details.restricted_near_orbit_start,
+        star_details.restricted_near_orbit_end,
+        star_details.restricted_far_orbit_start,
+        star_details.restricted_far_orbit_end,
+        star_details.orbit_number_range
         )
 
     conn = sqlite3.connect(star_details.db_name)
@@ -216,7 +241,6 @@ def create_sql_tables(parms):
     create_dice_rolls_table(parms.db_name)
 
 
-def update_star_tables(primary, companion):
-    insert_star_details(primary)
-    if companion is not None:
-        insert_star_details(companion)
+def update_star_table(star):
+    insert_star_details(star)
+

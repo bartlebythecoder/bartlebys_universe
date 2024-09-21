@@ -94,6 +94,8 @@ def build_secondary_star(main: bodies.Star, parms: bodies.Parameters, secondary_
     secondary.get_orbit_min()
     secondary.get_orbit_max()
     secondary.get_secondary_orbit_period(main)
+    secondary.get_minimum_allowable_orbit_number()
+    secondary.get_secondary_maximum_allowable_orbit_number()
 
     return secondary
 
@@ -146,14 +148,20 @@ def build_companion_star(main: bodies.Star, parms: bodies.Parameters):
     companion.get_orbit_min()
     companion.get_orbit_max()
     companion.get_companion_orbit_period(main)
+    companion.minimum_allowable_orbit_number = None
+    companion.maximum_allowable_orbit_number = None
 
     return companion
 
 
 def process_secondary_star_loop(system: bodies.System, primary_star: bodies.Star, parms: bodies.Parameters):
+    secondary_stars = []
     secondary_list = ['close', 'near', 'far']
     designation_list = ['B', 'C', 'D', 'X']
     designation_index = 0
+    close_star = None
+    near_star = None
+    far_star = None
     for each_secondary in secondary_list:
         if check_multiple_star(primary_star):
             if not (each_secondary == 'close' and primary_star.star_class in ['Ia', 'Ib', 'II', 'III']):
@@ -164,25 +172,48 @@ def process_secondary_star_loop(system: bodies.System, primary_star: bodies.Star
                                                  parms,
                                                  each_secondary,
                                                  designation_list[designation_index])
-                if secondary.star_age > system.system_age:
+
+
+                if (secondary.star_age is not None) and (secondary.star_age > system.system_age):
                     system.system_age = secondary.star_age
                 system.stars_in_system.append(secondary.star_class)
+                secondary_stars.append(secondary)
+
+                # remember stars for orbit constraint calculations
+                if each_secondary == 'close':
+                    close_star = secondary
+                    primary_star.get_restricted_close_orbits(secondary)
+                if each_secondary == 'near':
+                    near_star = secondary
+                    primary_star.get_restricted_near_orbits(secondary)
+                if each_secondary == 'far':
+                    far_star = secondary
+                    primary_star.get_restricted_far_orbits(secondary)
 
                 if check_multiple_star(secondary):
                     system.number_of_stars_in_system += 1
                     secondary_companion = build_companion_star(secondary, parms)
+                    secondary_stars.append(secondary_companion)
 
                     log_star(secondary_companion)
                     secondary.update_from_companion(secondary_companion)   # updates binary mass and designation
+                    secondary.get_minimum_allowable_orbit_number_with_companion(primary_star, secondary_companion)
 
-                    if secondary_companion.star_age > system.system_age:
+                    if secondary_companion.star_age is not None and secondary_companion.star_age > system.system_age:
                         system.system_age = secondary_companion.star_age
                     system.stars_in_system.append(secondary.star_class)
 
-                du.update_star_tables(secondary, secondary_companion)
                 designation_index += 1
+
+
+
             else:
                 logging.info(f"Failed secondary {each_secondary} {primary_star.star_class}")
+
+        if secondary_stars != []:
+            secondary_stars = bodies.add_secondary_orbit_constraints(secondary_stars)
+
+    return secondary_stars
 
 
 def build_primary_star(system, parms):
@@ -200,14 +231,22 @@ def build_primary_star(system, parms):
         system.stars_in_system.append(companion_star.star_class)
         log_star(companion_star)
         primary_star.update_from_companion(companion_star)  # updates binary mass and designation
+        primary_star.get_minimum_allowable_orbit_number_with_companion(primary_star, companion_star)
+    else:
+        companion_star = None
 
-    du.update_star_tables(primary_star, companion_star)
-    return primary_star
+    return primary_star, companion_star
 
 
 def build_stars(system: bodies.System, parms: bodies.Parameters):
-    primary_star = build_primary_star(system, parms)
-    process_secondary_star_loop(system, primary_star, parms)
+    primary_star, primary_companion = build_primary_star(system, parms)
+    secondary_stars = process_secondary_star_loop(system, primary_star, parms)
+    primary_star.get_primary_orbit_number_range()
+    du.update_star_table(primary_star)
+    if primary_companion is not None:
+        du.update_star_table(primary_companion)
+    for each_star in secondary_stars:
+        du.update_star_table(each_star)
 
 
 def system_present(parms: bodies.Parameters, location: str):
@@ -240,11 +279,16 @@ def build_system(parms: bodies.Parameters, location, subsector):
         stars_in_system=[],
         number_of_gas_giants=-1,
         number_of_planetoid_belts=-1,
-        number_of_terrestrial_planets=-1
+        number_of_terrestrial_planets=-1,
+        minimum_allowable_orbit_number=-1,
+        restricted_orbits=[]
     )
     build_stars(new_system, parms)
     new_system.get_number_of_gas_giants()
     new_system.get_number_of_planetoid_belts()
     new_system.get_number_of_terrestrial_planets()
+
     du.insert_system_details(new_system)
+
+
 

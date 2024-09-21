@@ -41,6 +41,8 @@ class System:
     number_of_gas_giants: int
     number_of_planetoid_belts: int
     number_of_terrestrial_planets: int
+    minimum_allowable_orbit_number: float
+    restricted_orbits: list
 
     def gas_giant_check(self):
         die_roll = gf.roll_dice(1)
@@ -202,8 +204,6 @@ class System:
             self.number_of_terrestrial_planets = first_roll + third_roll
 
 
-
-
 @dataclass
 class Star:
     db_name: str
@@ -230,6 +230,15 @@ class Star:
     star_luminosity: float
     star_age: float
     minimum_allowable_orbit_number: float
+    maximum_allowable_orbit_number: float
+    restricted_close_orbit_start: float
+    restricted_close_orbit_end: float
+    restricted_near_orbit_start: float
+    restricted_near_orbit_end: float
+    restricted_far_orbit_start: float
+    restricted_far_orbit_end: float
+    orbit_number_range: float
+
     habitable_zone_center: int
 
     def __init__(self, parms: Parameters, each_location: str):
@@ -265,6 +274,15 @@ class Star:
         self.planetoid_belts = UNDEFINED_VALUE
         self.terrestrial_planets = UNDEFINED_VALUE
         self.minimum_allowable_orbit_number = UNDEFINED_VALUE
+        self.maximum_allowable_orbit_number = UNDEFINED_VALUE
+        self.restricted_close_orbit_start = None
+        self.restricted_close_orbit_end = None
+        self.restricted_near_orbit_start = None
+        self.restricted_near_orbit_end = None
+        self.restricted_far_orbit_start = None
+        self.restricted_far_orbit_end = None
+        self.restricted_far_orbit_end = None
+        self.orbit_number_range = None
         self.habitable_zone_center = UNDEFINED_VALUE
 
         # Call methods to populate attributes based on logic
@@ -282,6 +300,7 @@ class Star:
         self.get_star_luminosity()
         self.get_star_age()
         self.get_minimum_allowable_orbit_number()
+        self.get_primary_maximum_allowable_orbit_number()
 
     def update_from_companion(self, companion):
         # Update binary_mass and designation due to a companion being added
@@ -360,13 +379,16 @@ class Star:
         # used for sibling companions
         type_list = ['O', 'B', 'A', 'F', 'G', 'K', 'M']
         try:
-            index = type_list.index(original_type)
-            if index < 6:  # Check if it's not the first element
-                logging.info(f'Getting previous star type. Was {original_type} now {type_list[index + 1]}')
-                self.star_type = type_list[index + 1]
+            if original_type in type_list:
+                index = type_list.index(original_type)
+                if index < 6:  # Check if it's not the first element
+                    logging.info(f'Getting previous star type. Was {original_type} now {type_list[index + 1]}')
+                    self.star_type = type_list[index + 1]
+                else:
+                    logging.info(f'Getting previous star class. Keeping {type_list[6]}')
+                    self.star_type = type_list[6]
             else:
-                logging.info(f'Getting previous star class. Keeping {type_list[6]}')
-                self.star_type = type_list[6]
+                self.star_type = original_type
 
         except Exception as e:
             logging.info(f'Previous Star Type Error {e}')
@@ -389,20 +411,20 @@ class Star:
             self.star_type = 'BD'
             self.star_class = 'BD'
 
-    def get_non_primary_star_type(self, main, companion_category):
+    def get_non_primary_star_type(self, main, category):
 
-        if companion_category == 'twin':
+        if category == 'twin':
             self.star_type = main.star_type
 
-        elif companion_category == 'sibling':
+        elif category == 'sibling':
             self.star_type = main.star_type
-        elif companion_category == 'lesser':
+        elif category == 'lesser':
             self.get_previous_star_type(main.star_type)
-        elif companion_category == 'random':
+        elif category == 'random':
             self.get_star_type()
             if is_hotter(self, main) or self.star_type == 'Special':
                 self.get_previous_star_type(main.star_type)
-        elif companion_category == 'other':
+        elif category == 'other':
             self.get_other_star_type()
 
     def get_star_subtype(self):
@@ -771,7 +793,7 @@ class Star:
 
     def get_non_primary_star_age(self):
         if self.star_class not in ['BD', 'D']:
-            self.star_age = 0
+            self.star_age = None
         elif self.star_class == 'BD':
             self.get_small_star_age()
         elif self.star_class == 'D':
@@ -946,30 +968,172 @@ class Star:
         self.orbit_period = round(math.sqrt(self.orbit_au **3/(main.binary_mass + self.star_mass))*365.25, 2)
 
     def get_minimum_allowable_orbit_number(self):
-        moa_table = gf.csv_to_dict_of_lists('moa.csv')
-        lookup_key = self.star_type + str(self.star_subtype)
-        star_class_col_num = lu.star_class_col_num_dy[self.star_class]
-        self.orbit_number = float(moa_table[lookup_key][star_class_col_num])
+        try:
+            if self.star_class == 'BD':
+                self.minimum_allowable_orbit_number = 0.005
+            elif self.star_class == 'D':
+                self.minimum_allowable_orbit_number = 0.001
+            else:
+                moa_table = gf.csv_to_dict_of_lists('minimum_orbit_number.csv')
+                lookup_key = self.star_type + str(self.star_subtype)
+                star_class_col_num = lu.star_class_col_num_dy[self.star_class]
+                self.minimum_allowable_orbit_number = float(moa_table[lookup_key][star_class_col_num])
+        except Exception as e:
+            logging.info(f'Failed MOA Lookup {self}')
+
+    def get_minimum_allowable_orbit_number_with_companion(self, primary: object, companion: object):
+        try:
+            new_moa = companion.orbit_eccentricity + 0.5
+            if primary.minimum_allowable_orbit_number < new_moa:
+                logging.info(f'Companion bumped MOA higher {primary.minimum_allowable_orbit_number} to {new_moa}')
+                self.minimum_allowable_orbit_number = new_moa
+            else:
+                logging.info('Warning. MOA was higher than companion eccentricity + 0.5')
+            return primary
+        except Exception as e:
+            logging.info(f'Failed Companion MOA Lookup {self} {companion}')
+
+    def get_primary_maximum_allowable_orbit_number(self):
+        self.maximum_allowable_orbit_number = 20
+
+    def get_secondary_maximum_allowable_orbit_number(self):
+        self.maximum_allowable_orbit_number = self.orbit_number - 3
+
+    def get_restricted_close_orbits(self, secondary):
+        self.restricted_close_orbit_start, self.restricted_close_orbit_end = add_primary_orbit_constraints(secondary)
+
+    def get_restricted_near_orbits(self, secondary):
+        self.restricted_near_orbit_start, self.restricted_near_orbit_end = add_primary_orbit_constraints(secondary)
+        logging.info(f'Near orbit constraints: {self.restricted_near_orbit_start, self.restricted_near_orbit_end}')
+
+    def get_restricted_far_orbits(self, secondary):
+        self.restricted_far_orbit_start, self.restricted_far_orbit_end = add_primary_orbit_constraints(secondary)
+
+    def get_primary_orbit_number_range(self):
+        self.orbit_number_range = self.maximum_allowable_orbit_number - self.minimum_allowable_orbit_number
+        if self.restricted_far_orbit_end is not None and self.restricted_far_orbit_start is not None:
+            self.orbit_number_range = self.orbit_number_range - (self.restricted_far_orbit_end -
+                                                                 self.restricted_far_orbit_start)
+
+        if self.restricted_near_orbit_end is not None and self.restricted_near_orbit_start is not None:
+            self.orbit_number_range = self.orbit_number_range - (self.restricted_near_orbit_end -
+                                                                 self.restricted_near_orbit_start)
+
+        if self.restricted_close_orbit_end is not None and self.restricted_close_orbit_start is not None:
+            self.orbit_number_range = self.orbit_number_range - (self.restricted_close_orbit_end -
+                                                                 self.restricted_close_orbit_start)
+
+    def get_secondary_orbit_number_range(self):
+        if self.maximum_allowable_orbit_number is not None and self.minimum_allowable_orbit_number is not None:
+            self.orbit_number_range = self.maximum_allowable_orbit_number - self.minimum_allowable_orbit_number
 
 
-def is_hotter(companion: Star, primary: Star):
+
+def is_hotter(smaller: Star, main: Star):
+    """Given two stars, smaller and main, checks to see if the smaller is hotter than the main"""
+    """Used for comparing secondaries to primaries or companions to their main partner"""
     type_list = ['O', 'B', 'A', 'F', 'G', 'K', 'M']
-    logging.info(f'Checking if companion is hotter than main')
+    logging.info(f'Checking if smaller is hotter than main')
     try:
-        companion_index = type_list.index(companion.star_type)
-        primary_index = type_list.index(primary.star_type)
-        logging.info(f' Type Indicies {companion_index} {primary_index}')
-        logging.info(f' Subtypes {companion.star_subtype} {primary.star_subtype}')
-        if companion_index > primary_index:
-            logging.info('False. Companion Index > Primary Index')
-            return False
-        elif companion_index == primary_index and companion.star_subtype < primary.star_subtype:
-            logging.info('False. Companion Index = Primary Index and Companion Subtype < Primary Subtype')
-            return False
+        if smaller.star_type != 'Special':
+            smaller_index = type_list.index(smaller.star_type)
+            main_index = type_list.index(main.star_type)
+            logging.info(f' Type Indicies {smaller_index} {main_index}')
+            logging.info(f' Subtypes {smaller.star_subtype} {main.star_subtype}')
+            if smaller_index > main_index:
+                logging.info('False. Companion Index > Primary Index')
+                return False
+            elif smaller_index == main_index and smaller.star_subtype < main.star_subtype:
+                logging.info('False. Smaller Index = Main Index and Smaller Subtype < Main Subtype')
+                return False
+            else:
+                logging.info('True')
+                return True
         else:
-            logging.info('True')
-            return True
+            logging.info('Is Hotter function N/A.  Startype is Special.  Returning False.')
+            return False
 
     except ValueError:
-        logging.info('Random Companion Error')
+        logging.info(f'Is Hotter Error {smaller} {main}')
         return False
+
+
+def add_primary_orbit_constraints(secondary: Star):
+    logging.info('Calling secondary orbit restrictions')
+    if secondary.orbit_eccentricity > 0.2:
+        restriction_increment = 2
+    elif secondary.orbit_eccentricity > 0.5 and secondary.orbit_class in ['near', 'close']:
+        restriction_increment = 3
+    else:
+        restriction_increment = 1
+    restriction_start = secondary.orbit_number - restriction_increment
+    restriction_end = secondary.orbit_number + restriction_increment
+    logging.info(f'Restriction starts and ends:  {restriction_start}  {restriction_end}')
+    return restriction_start, restriction_end
+
+
+def update_secondary_maximum_allowable_orbit(star: Star, eccentricity: float):
+    star.maximum_allowable_orbit_number -= 1
+    if eccentricity > 0.2:
+        star.maximum_allowable_orbit_number -= 1
+        if eccentricity > 0.5:
+            star.maximum_allowable_orbit_number -= 1
+    return star
+
+
+def add_secondary_orbit_constraints(secondary_stars: list):
+    return_stars_list = []
+    close_eccentricity = 0
+    near_eccentricity = 0
+    far_eccentricity = 0
+    top_eccentricity = 0
+    close_flag = False
+    near_flag = False
+    far_flag = False
+
+    for each_secondary in secondary_stars:
+
+        if each_secondary.orbit_class == 'close':
+            close_flag = True
+            close_eccentricity = each_secondary.orbit_eccentricity
+        elif each_secondary.orbit_class == 'near':
+            near_flag = True
+            near_eccentricity = each_secondary.orbit_eccentricity
+        elif each_secondary.orbit_class == 'far':
+            far_flag = True
+            far_eccentricity = each_secondary.orbit_eccentricity
+
+    for each_star in secondary_stars:
+        if each_star.orbit_class != 'companion':
+            if each_star.orbit_class == 'close' and near_flag is True:
+                each_star = update_secondary_maximum_allowable_orbit(each_star, near_eccentricity)
+
+            elif each_star.orbit_class == 'near' and (close_flag is True or far_flag is True):
+                if close_eccentricity > far_eccentricity:
+                    top_eccentricity = close_eccentricity
+                else:
+                    top_eccentricity = far_eccentricity
+                each_star = update_secondary_maximum_allowable_orbit(each_star, top_eccentricity)
+
+            elif each_star.orbit_class == 'far' and near_flag is True:
+                each_star = update_secondary_maximum_allowable_orbit(each_star, near_eccentricity)
+
+            try:
+                if each_star.maximum_allowable_orbit_number < 0:
+                    logging.info(f'Warning, secondary restriction {each_star.orbit_class} below 0 '
+                                 f'{each_star.maximum_allowable_orbit_number}')
+                    each_star.maximum_allowable_orbit_number = 0
+            except:
+                logging.info(f'ERROR - cannot update maximum allowable orbit {each_star}')
+
+            return_stars_list.append(each_star)
+
+        else:
+            each_star.maximum_allowable_orbit_number = None
+            return_stars_list.append(each_star)
+
+
+        for every_star in secondary_stars:
+            every_star.get_secondary_orbit_number_range()
+
+    return return_stars_list
