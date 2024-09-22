@@ -15,8 +15,8 @@ def create_system_details_table(db_name: str):
         number_of_gas_giants INT,
         number_of_planetoid_belts INT,
         number_of_terrestrial_planets INT,
-        minimum_allowable_orbit_number REAL,
-        restricted_orbits TEXT
+        total_system_orbits INT,
+        baseline_number INT
     )
     '''
 
@@ -53,6 +53,7 @@ def create_star_details_table(db_name: str):
          star_temperature REAL,
          star_diameter REAL,
          star_luminosity REAL,
+         binary_luminosity REAL,
          star_age REAL,
          minimum_allowable_orbit_number REAL,
          maximum_allowable_orbit_number REAL,
@@ -63,7 +64,8 @@ def create_star_details_table(db_name: str):
          restricted_far_orbit_start REAL,
          restricted_far_orbit_end REAL,
          orbit_number_range FLOAT,
-         habitable_zone_center INTEGER)
+         habitable_zone_center REAL,
+         total_star_orbits INTEGER)
     '''
 
     conn = sqlite3.connect(db_name)
@@ -108,8 +110,8 @@ def insert_system_details(system_details: object):
     number_of_gas_giants,
     number_of_planetoid_belts,
     number_of_terrestrial_planets,
-    minimum_allowable_orbit_number,
-    restricted_orbits)
+    total_system_orbits,
+    baseline_number)
     VALUES (?,?,?,?,?,?,?,?,?,?,?)
     '''
     values_to_insert = (
@@ -122,8 +124,8 @@ def insert_system_details(system_details: object):
         system_details.number_of_gas_giants,
         system_details.number_of_planetoid_belts,
         system_details.number_of_terrestrial_planets,
-        system_details.minimum_allowable_orbit_number,
-        str(system_details.restricted_orbits)
+        system_details.total_system_orbits,
+        system_details.baseline_number
     )
 
     conn = sqlite3.connect(system_details.db_name)
@@ -156,6 +158,7 @@ def insert_star_details(star_details: object):
     star_temperature,
     star_diameter,
     star_luminosity,
+    binary_luminosity,
     star_age,
     minimum_allowable_orbit_number,
     maximum_allowable_orbit_number,
@@ -165,8 +168,10 @@ def insert_star_details(star_details: object):
     restricted_near_orbit_end,
     restricted_far_orbit_start,
     restricted_far_orbit_end,
-    orbit_number_range)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    orbit_number_range,
+    habitable_zone_center,
+    total_star_orbits)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     '''
     values_to_insert = (
         star_details.location,
@@ -188,6 +193,7 @@ def insert_star_details(star_details: object):
         star_details.star_temperature,
         star_details.star_diameter,
         star_details.star_luminosity,
+        star_details.binary_luminosity,
         star_details.star_age,
         star_details.minimum_allowable_orbit_number,
         star_details.maximum_allowable_orbit_number,
@@ -197,7 +203,9 @@ def insert_star_details(star_details: object):
         star_details.restricted_near_orbit_end,
         star_details.restricted_far_orbit_start,
         star_details.restricted_far_orbit_end,
-        star_details.orbit_number_range
+        star_details.orbit_number_range,
+        star_details.habitable_zone_center,
+        star_details.total_star_orbits
         )
 
     conn = sqlite3.connect(star_details.db_name)

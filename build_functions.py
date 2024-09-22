@@ -77,11 +77,14 @@ def build_secondary_star(main: bodies.Star, parms: bodies.Parameters, secondary_
 
     secondary.get_star_mass()
     secondary.binary_mass = secondary.star_mass
+
     secondary.get_non_primary_star_age()
 
     secondary.get_star_diameter()
     secondary.get_star_temperature()
     secondary.get_star_luminosity()
+    secondary.binary_luminosity = secondary.star_luminosity
+    secondary.get_hzco()
 
     secondary.get_secondary_orbit_number()
     if main.designation == 'Aa':
@@ -135,11 +138,14 @@ def build_companion_star(main: bodies.Star, parms: bodies.Parameters):
 
     companion.get_star_mass()
     companion.binary_mass = companion.star_mass
+
     companion.get_non_primary_star_age()
 
     companion.get_star_diameter()
     companion.get_star_temperature()
     companion.get_star_luminosity()
+    companion.binary_luminosity = companion.star_luminosity
+
 
     companion.get_companion_orbit_number(main)
     companion.stars_orbited = 1
@@ -150,6 +156,10 @@ def build_companion_star(main: bodies.Star, parms: bodies.Parameters):
     companion.get_companion_orbit_period(main)
     companion.minimum_allowable_orbit_number = None
     companion.maximum_allowable_orbit_number = None
+
+    companion.habitable_zone_center = 0
+    companion.total_star_orbits = 0
+
 
     return companion
 
@@ -210,8 +220,8 @@ def process_secondary_star_loop(system: bodies.System, primary_star: bodies.Star
             else:
                 logging.info(f"Failed secondary {each_secondary} {primary_star.star_class}")
 
-        if secondary_stars != []:
-            secondary_stars = bodies.add_secondary_orbit_constraints(secondary_stars)
+    if secondary_stars != []:
+        secondary_stars = bodies.add_secondary_orbit_constraints(secondary_stars, system)
 
     return secondary_stars
 
@@ -242,6 +252,9 @@ def build_stars(system: bodies.System, parms: bodies.Parameters):
     primary_star, primary_companion = build_primary_star(system, parms)
     secondary_stars = process_secondary_star_loop(system, primary_star, parms)
     primary_star.get_primary_orbit_number_range()
+    primary_star.get_total_star_orbits()
+    system.total_system_orbits += primary_star.total_star_orbits
+    logging.info(f'Total System Orbits {system.total_system_orbits}')
     du.update_star_table(primary_star)
     if primary_companion is not None:
         du.update_star_table(primary_companion)
@@ -280,8 +293,8 @@ def build_system(parms: bodies.Parameters, location, subsector):
         number_of_gas_giants=-1,
         number_of_planetoid_belts=-1,
         number_of_terrestrial_planets=-1,
-        minimum_allowable_orbit_number=-1,
-        restricted_orbits=[]
+        total_system_orbits=0,
+        baseline_number=-1
     )
     build_stars(new_system, parms)
     new_system.get_number_of_gas_giants()

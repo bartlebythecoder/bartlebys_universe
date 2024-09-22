@@ -41,8 +41,8 @@ class System:
     number_of_gas_giants: int
     number_of_planetoid_belts: int
     number_of_terrestrial_planets: int
-    minimum_allowable_orbit_number: float
-    restricted_orbits: list
+    total_system_orbits: int
+    baseline_number: int
 
     def gas_giant_check(self):
         die_roll = gf.roll_dice(1)
@@ -225,6 +225,7 @@ class Star:
     star_class: str
     star_mass: float
     binary_mass: float
+    binary_luminosity: float
     star_temperature: float
     star_diameter: float
     star_luminosity: float
@@ -238,8 +239,8 @@ class Star:
     restricted_far_orbit_start: float
     restricted_far_orbit_end: float
     orbit_number_range: float
-
-    habitable_zone_center: int
+    habitable_zone_center: float
+    total_star_orbits: int
 
     def __init__(self, parms: Parameters, each_location: str):
         # Initialize attributes with provided values
@@ -264,6 +265,7 @@ class Star:
         self.star_class = UNDEFINED_CATEGORY
         self.star_mass = UNDEFINED_VALUE
         self.binary_mass = UNDEFINED_VALUE
+        self.binary_luminosity = UNDEFINED_VALUE
         self.star_temperature = UNDEFINED_VALUE
         self.star_diameter = UNDEFINED_VALUE
         self.star_luminosity = UNDEFINED_VALUE
@@ -284,6 +286,7 @@ class Star:
         self.restricted_far_orbit_end = None
         self.orbit_number_range = None
         self.habitable_zone_center = UNDEFINED_VALUE
+        self.total_star_orbits = UNDEFINED_VALUE
 
         # Call methods to populate attributes based on logic
         self.get_star_type()
@@ -298,14 +301,18 @@ class Star:
         self.get_star_temperature()
         self.get_star_diameter()
         self.get_star_luminosity()
+        self.binary_luminosity = self.star_luminosity
         self.get_star_age()
         self.get_minimum_allowable_orbit_number()
         self.get_primary_maximum_allowable_orbit_number()
+        self.get_hzco()
 
     def update_from_companion(self, companion):
-        # Update binary_mass and designation due to a companion being added
+        # Update binary_mass, luminosity and designation due to a companion being added
         self.designation += 'a'
         self.binary_mass = self.star_mass + companion.star_mass
+        self.binary_luminosity = self.star_luminosity + companion.star_luminosity
+
 
     def get_hot_star_type(self):
         # if the original get_star_type function returns a hot star, this function is used to return a star type
@@ -1027,6 +1034,24 @@ class Star:
         if self.maximum_allowable_orbit_number is not None and self.minimum_allowable_orbit_number is not None:
             self.orbit_number_range = self.maximum_allowable_orbit_number - self.minimum_allowable_orbit_number
 
+    def get_hzco(self):
+        logging.info(f'Getting HZCO binary luminosity = {self.binary_luminosity}')
+        sqrt = math.sqrt(self.binary_luminosity)
+        if sqrt <= 20:
+            self.habitable_zone_center = calculate_orbit_number_from_au(math.sqrt(sqrt))
+        else:
+            logging.info('WARNING:  HZCO moved to orbit 20')
+            self.habitable_zone_center = calculate_orbit_number_from_au(math.sqrt(20))
+        logging.info(self.habitable_zone_center)
+
+    def get_total_star_orbits(self):
+        if self.orbit_number_range is not None and self.orbit_number_range > 0:
+            self.total_star_orbits = math.floor(self.orbit_number_range)
+            if self.designation in ['A', 'B', 'C']:
+                self.total_star_orbits += 1
+        else:
+            logging.info(f'No star orbits. {self.orbit_number_range} ')
+            self.total_star_orbits = 0
 
 
 def is_hotter(smaller: Star, main: Star):
@@ -1058,6 +1083,7 @@ def is_hotter(smaller: Star, main: Star):
         return False
 
 
+
 def add_primary_orbit_constraints(secondary: Star):
     logging.info('Calling secondary orbit restrictions')
     if secondary.orbit_eccentricity > 0.2:
@@ -1081,7 +1107,7 @@ def update_secondary_maximum_allowable_orbit(star: Star, eccentricity: float):
     return star
 
 
-def add_secondary_orbit_constraints(secondary_stars: list):
+def add_secondary_orbit_constraints(secondary_stars: list, system: System):
     return_stars_list = []
     close_eccentricity = 0
     near_eccentricity = 0
@@ -1133,7 +1159,32 @@ def add_secondary_orbit_constraints(secondary_stars: list):
             return_stars_list.append(each_star)
 
 
-        for every_star in secondary_stars:
-            every_star.get_secondary_orbit_number_range()
+    for every_star in secondary_stars:
+        every_star.get_secondary_orbit_number_range()
+        every_star.get_total_star_orbits()
+        logging.info(f'System {system.location} Star {every_star.designation}  '
+                     f'Orbits: {every_star.total_star_orbits}')
+        system.total_system_orbits += every_star.total_star_orbits
+        logging.info(f'System Orbits {system.total_system_orbits}')
 
     return return_stars_list
+
+
+def calculate_orbit_number_from_au(x: float):
+
+    data = lu.orbit_number_to_au_dy
+
+    if isinstance(x, int):  # Handle integer inputs directly
+        for item in data:
+            if item[0] == x:
+                return item[1]
+        return None
+
+    else:  # Handle fractional inputs using interpolation
+        lower_x = int(x)
+        lower_y = data[lower_x]
+        upper_y = data[lower_x + 1]
+
+        fractional_part = x - lower_x
+        estimated_y = lower_y + fractional_part * (upper_y - lower_y)
+        return estimated_y
