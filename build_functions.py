@@ -260,7 +260,11 @@ def build_stars(system: bodies.System, parms: bodies.Parameters):
         du.update_star_table(primary_companion)
     for each_star in secondary_stars:
         du.update_star_table(each_star)
-
+    system.number_of_secondary_stars_in_system = len(secondary_stars)
+    system.get_baseline_number(primary_star)
+    system.get_baseline_orbit_number(primary_star)
+    system.get_empty_orbits()
+    system.get_orbit_spread(primary_star)
 
 def system_present(parms: bodies.Parameters, location: str):
     # returns a True or False if a system is present based on the frequency provided
@@ -290,16 +294,22 @@ def build_system(parms: bodies.Parameters, location, subsector):
         primary_star_class='X',
         number_of_stars_in_system=0,
         stars_in_system=[],
+        number_of_secondary_stars_in_system=-1,
         number_of_gas_giants=-1,
         number_of_planetoid_belts=-1,
         number_of_terrestrial_planets=-1,
         total_system_orbits=0,
-        baseline_number=-1
+        baseline_number=-1,
+        baseline_orbit_number = -1,
+        empty_orbits=-1,
+        orbit_spread=-1
     )
     build_stars(new_system, parms)
     new_system.get_number_of_gas_giants()
     new_system.get_number_of_planetoid_belts()
     new_system.get_number_of_terrestrial_planets()
+
+
 
     du.insert_system_details(new_system)
 

@@ -77,17 +77,6 @@ def dict_to_indexed_list(data_dict):
     return [(value, key) for key, value in data_dict.items()]
 
 
-def is_between(x: int, a: float, b: float):
-    """
-    Checks if an integer `x` is between two floats `a` and `b` (inclusive).
-
-    Args:
-    x: The integer to check.
-    a: The lower bound (float).
-    b: The upper bound (float).
-
-    Returns:
-    True if `x` is between `a` and `b` (inclusive), False otherwise.
-    """
-
+def is_between(x: float, a: float, b: float):
+    """ Checks if a number `x` is between two floats `a` and `b` (inclusive). """
     return a <= x <= b

@@ -38,11 +38,15 @@ class System:
     primary_star_class: str
     number_of_stars_in_system: int
     stars_in_system: list
+    number_of_secondary_stars_in_system: int
     number_of_gas_giants: int
     number_of_planetoid_belts: int
     number_of_terrestrial_planets: int
     total_system_orbits: int
     baseline_number: int
+    baseline_orbit_number: float
+    empty_orbits: int
+    orbit_spread: float
 
     def gas_giant_check(self):
         die_roll = gf.roll_dice(1)
@@ -202,6 +206,96 @@ class System:
             du.insert_dice_rolls(self.db_name, dice_info)
 
             self.number_of_terrestrial_planets = first_roll + third_roll
+
+    def get_baseline_number(self, star: object):
+        if gf.is_between(star.habitable_zone_center,
+                        star.minimum_allowable_orbit_number,
+                        star.maximum_allowable_orbit_number):
+            self.baseline_number = star.hzco_is_available(self)
+        else:
+            self.baseline_number = 0
+
+    def get_baseline_orbit_number(self, star):
+        total_worlds = self.number_of_gas_giants + self.number_of_planetoid_belts + self.number_of_terrestrial_planets
+
+        if 1 <= self.baseline_number < total_worlds:
+            dice_roll = gf.roll_dice(2) - 7
+            dice_info = DiceRoll(
+                location=self.location,
+                number=2,
+                reason='2D-7 baseline orbit number 3a',
+                dice_result=dice_roll,
+                table_result=str(dice_roll))
+            du.insert_dice_rolls(self.db_name, dice_info)
+            if star.habitable_zone_center > 1:
+                self.baseline_orbit_number = star.habitable_zone_center + (dice_roll / 10)
+            else:
+                self.baseline_orbit_number = star.habitable_zone_center + (dice_roll / 100)
+
+        elif self.baseline_number < 1:
+            dice_roll = gf.roll_dice(2) - 2
+            dice_info = DiceRoll(
+                location=self.location,
+                number=2,
+                reason='2D-2 baseline orbit number 3b',
+                dice_result=dice_roll,
+                table_result=str(dice_roll))
+            du.insert_dice_rolls(self.db_name, dice_info)
+
+            if star.minimum_allowable_orbit_number < 1:
+                self.baseline_orbit_number = (star.habitable_zone_center - self.baseline_number +
+                                              total_worlds + (dice_roll / 10))
+            else:
+                self.baseline_orbit_number = (star.minimum_allowable_orbit_number - (self.baseline_number / 10) +
+                                              + (dice_roll / 100))
+
+        elif self.baseline_number > total_worlds:
+            dice_roll = gf.roll_dice(2) - 7
+            dice_info = DiceRoll(
+                location=self.location,
+                number=2,
+                reason='2D-7 baseline orbit number 3c',
+                dice_result=dice_roll,
+                table_result=str(dice_roll))
+            du.insert_dice_rolls(self.db_name, dice_info)
+
+            if star.habitable_zone_center - self.baseline_number + total_worlds >= 1:
+                self.baseline_orbit_number = (star.habitable_zone_center - self.baseline_number +
+                                              total_worlds + (dice_roll / 5))
+            else:
+                self.baseline_orbit_number = (star.habitable_zone_center -
+                                              ((self.baseline_number + total_worlds + (dice_roll / 5)) / 10))
+                if self.baseline_orbit_number < 0:
+                    self.baseline_orbit_number = star.habitable_zone_center - 0.1
+                    if self.baseline_orbit_number < star.minimum_allowable_orbit_number + (total_worlds * .01):
+                        self.baseline_orbit_number = star.minimum_allowable_orbit_number + (total_worlds * .01)
+
+    def get_empty_orbits(self):
+        dice_roll = gf.roll_dice(2)
+        dice_info = DiceRoll(
+            location=self.location,
+            number=2,
+            reason='empty orbits',
+            dice_result=dice_roll,
+            table_result=str(dice_roll))
+
+        if dice_roll <= 9:
+            self.empty_orbits = 0
+        elif dice_roll <= 10:
+            self.empty_orbits = 1
+        elif dice_roll <= 11:
+            self.empty_orbits = 2
+        else:
+            self.empty_orbits = 3
+
+    def get_orbit_spread(self, star:object):
+        if self.baseline_number > 1:
+            self.orbit_spread = ((self.baseline_orbit_number - star.minimum_allowable_orbit_number) /
+                                 self.baseline_number)
+        else:
+            self.orbit_spread = (star.total_star_orbits /
+                                 (star.total_star_orbits + self.empty_orbits + self.number_of_stars_in_system))
+
 
 
 @dataclass
@@ -496,7 +590,7 @@ class Star:
         dice_info = DiceRoll(
             location=self.location,
             number=2,
-            reason='star class',
+            reason='giant star class',
             dice_result=dice,
             table_result=lu.mgt2e_giant_star_class_dy[dice])
         du.insert_dice_rolls(self.db_name, dice_info)
@@ -532,9 +626,11 @@ class Star:
                 self.star_type = 'K'
                 self.star_subtype = 4
         elif self.star_class == 'VI':
-            if self.star_type in ['A','F']:
-                self.star_class = 'G'
+            if self.star_type == 'A':
+                self.star_type = 'G'
                 self.star_subtype = 0
+            elif self.star_type == 'F' and self.star_type < 6:
+                self.star_subtype = 6
 
     def get_brown_dwarf_mass(self):
         dice_roll_1 = gf.roll_dice(1)
@@ -842,7 +938,7 @@ class Star:
                 dice_result=die_roll,
                 table_result=die_roll)
             du.insert_dice_rolls(self.db_name, dice_info)
-            moa_table = gf.csv_to_dict_of_lists('moa.csv')
+            moa_table = gf.csv_to_dict_of_lists('minimum_orbit_number.csv')
             lookup_key = self.star_type + str(self.star_subtype)
             star_class_col_num = lu.star_class_col_num_dy[self.star_class]
             self.orbit_number = float(moa_table[lookup_key][star_class_col_num]) * die_roll
@@ -901,7 +997,7 @@ class Star:
         if self.orbit_number < 1:
             self.orbit_au = lu.orbit_number_to_au_dy[1] * self.orbit_number
         else:
-            self.orbit_au = lu.orbit_number_to_au_dy[self.orbit_number]
+            self.orbit_au = extrapolate_table(self.orbit_number, lu.orbit_number_to_au_dy)
 
     def get_base_eccentricity(self):
         logging.info(f'Getting base eccentricity.  Total stars directly orbited {self.stars_orbited}')
@@ -1037,11 +1133,8 @@ class Star:
     def get_hzco(self):
         logging.info(f'Getting HZCO binary luminosity = {self.binary_luminosity}')
         sqrt = math.sqrt(self.binary_luminosity)
-        if sqrt <= 20:
-            self.habitable_zone_center = calculate_orbit_number_from_au(math.sqrt(sqrt))
-        else:
-            logging.info('WARNING:  HZCO moved to orbit 20')
-            self.habitable_zone_center = calculate_orbit_number_from_au(math.sqrt(20))
+        au_to_orbit_number_dy = invert_orbit_dictionary(lu.orbit_number_to_au_dy)
+        self.habitable_zone_center = extrapolate_table(sqrt, au_to_orbit_number_dy)
         logging.info(self.habitable_zone_center)
 
     def get_total_star_orbits(self):
@@ -1052,6 +1145,54 @@ class Star:
         else:
             logging.info(f'No star orbits. {self.orbit_number_range} ')
             self.total_star_orbits = 0
+
+    def get_random_baseline_number(self, system):
+        dm = 0
+        if self.designation == 'Aa': dm -= 2
+        if self.star_class in ['Ia','Ib','II']: dm += 3
+        elif self.star_class == 'III': dm += 2
+        elif self.star_class == 'IV': dm += 1
+        elif self.star_class == 'VI': dm -= 1
+        elif self.star_class == 'D': dm -= 2
+
+        total_worlds = (system.number_of_gas_giants + system.number_of_planetoid_belts +
+                        system.number_of_terrestrial_planets)
+
+        if total_worlds < 6: dm -= 4
+        elif total_worlds <= 9: dm -= 3
+        elif total_worlds <= 12: dm -= 2
+        elif total_worlds <= 15: dm -= 1
+        elif total_worlds <= 20: dm += 1
+        else: dm += 2
+
+        if system.number_of_secondary_stars_in_system > 0:
+            dm -= system.number_of_secondary_stars_in_system
+
+        dice_roll = gf.roll_dice(2) + dm
+
+        dice_info = DiceRoll(
+            location=self.location,
+            number=2,
+            reason='calculating system baseline number',
+            dice_result=dice_roll,
+            table_result=str(dice_roll))
+        du.insert_dice_rolls(self.db_name, dice_info)
+
+        return dice_roll
+
+
+    def hzco_is_available(self, system):
+        if self.restricted_close_orbit_start is not None and (gf.is_between(self.habitable_zone_center,
+                         self.restricted_close_orbit_start,
+                         self.restricted_close_orbit_end)):
+            if self.restricted_close_orbit_start <= self.minimum_allowable_orbit_number:
+                return 0
+            else:
+                return math.floor(self.restricted_close_orbit_start - self.minimum_allowable_orbit_number + 1)
+        else:
+            return self.get_random_baseline_number(system)
+
+
 
 
 def is_hotter(smaller: Star, main: Star):
@@ -1170,21 +1311,61 @@ def add_secondary_orbit_constraints(secondary_stars: list, system: System):
     return return_stars_list
 
 
-def calculate_orbit_number_from_au(x: float):
+def extrapolate_table(x: float, data: dict):
+    def get_keys(x_var):
+        old_key = 0
+        for key in data:
+            if key > x_var:
+                return old_key, key
+            else:
+                old_key = key
+        return -1, -1
 
-    data = lu.orbit_number_to_au_dy
-
-    if isinstance(x, int):  # Handle integer inputs directly
-        for item in data:
-            if item[0] == x:
-                return item[1]
-        return None
+    if x in data:
+        return data[x]
 
     else:  # Handle fractional inputs using interpolation
-        lower_x = int(x)
-        lower_y = data[lower_x]
-        upper_y = data[lower_x + 1]
+        lower, upper = get_keys(x)
+        lower_y = data[lower]
+        upper_y = data[upper]
 
-        fractional_part = x - lower_x
+        fractional_part = (x - lower) / (upper - lower)
         estimated_y = lower_y + fractional_part * (upper_y - lower_y)
         return estimated_y
+
+
+
+def invert_orbit_dictionary(original_dict):
+    """
+    Inverts the given dictionary, mapping AU values to lists of orbit numbers.
+
+    Args:
+        original_dict: The original dictionary mapping orbit numbers to AU values.
+
+    Returns:
+        A new dictionary mapping AU values to lists of orbit numbers.
+    """
+
+    inverted_dict = {}
+    for orbit_number, au_value in original_dict.items():
+        if au_value not in inverted_dict:
+            inverted_dict[au_value] = None
+        inverted_dict[au_value] = orbit_number
+    return inverted_dict
+
+
+def lookup_orbit_number(au_value):
+    """
+    Looks up the orbit number(s) corresponding to the given AU value.
+
+    Args:
+        au_value: The AU value to look up.
+
+    Returns:
+        A list of orbit numbers corresponding to the AU value, or None if not found.
+    """
+    au_to_orbit_number = invert_orbit_dictionary(lu.orbit_number_to_au_dy)
+    if au_value in au_to_orbit_number:
+        return au_to_orbit_number[au_value]
+    else:
+        return None

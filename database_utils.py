@@ -12,11 +12,15 @@ def create_system_details_table(db_name: str):
         primary_star_class TEXT,
         number_of_stars_in_system INT,
         stars_in_system TEXT,
+        number_of_secondary_stars_in_system,
         number_of_gas_giants INT,
         number_of_planetoid_belts INT,
         number_of_terrestrial_planets INT,
         total_system_orbits INT,
-        baseline_number INT
+        baseline_number INT,
+        baseline_orbit_number REAL,
+        empty_orbits INT,
+        orbit_spread REAL
     )
     '''
 
@@ -107,12 +111,16 @@ def insert_system_details(system_details: object):
     primary_star_class,
     number_of_stars_in_system,
     stars_in_system,
+    number_of_secondary_stars_in_system,
     number_of_gas_giants,
     number_of_planetoid_belts,
     number_of_terrestrial_planets,
     total_system_orbits,
-    baseline_number)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?)
+    baseline_number,
+    baseline_orbit_number,
+    empty_orbits,
+    orbit_spread)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     '''
     values_to_insert = (
         system_details.location,
@@ -121,11 +129,15 @@ def insert_system_details(system_details: object):
         system_details.primary_star_class,
         system_details.number_of_stars_in_system,
         str(system_details.stars_in_system),
+        system_details.number_of_secondary_stars_in_system,
         system_details.number_of_gas_giants,
         system_details.number_of_planetoid_belts,
         system_details.number_of_terrestrial_planets,
         system_details.total_system_orbits,
-        system_details.baseline_number
+        system_details.baseline_number,
+        system_details.baseline_orbit_number,
+        system_details.empty_orbits,
+        system_details.orbit_spread
     )
 
     conn = sqlite3.connect(system_details.db_name)
