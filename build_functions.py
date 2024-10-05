@@ -255,16 +255,41 @@ def build_stars(system: bodies.System, parms: bodies.Parameters):
     primary_star.get_total_star_orbits()
     system.total_system_orbits += primary_star.total_star_orbits
     logging.info(f'Total System Orbits {system.total_system_orbits}')
+
+
+    system.number_of_secondary_stars_in_system = len(secondary_stars)
+    system.get_baseline_number(primary_star)
+    system.get_baseline_orbit_number(primary_star)
+    system.get_empty_orbits()
+
+    if system.empty_orbits > 0:
+
+        if secondary_stars:
+            for each_star in secondary_stars:
+                if each_star.total_star_orbits > 0:
+                    logging.info(f'adding empty orbits to secondary')
+                    each_star.total_star_orbits += system.empty_orbits
+                    system.total_system_orbits += system.empty_orbits
+                    break
+
+        else:
+            if primary_star.total_star_orbits > 0:
+                logging.info(f'Empty Orbits Adding {system.empty_orbits}')
+                primary_star.total_star_orbits += system.empty_orbits
+                system.total_system_orbits += system.empty_orbits
+            else:
+                logging.info(f'Not enough orbits in Primary for empty orbits: {system.empty_orbits}')
+
+    else:
+        logging.info(f'{primary_star.location} No empty orbits')
+
+    system.get_orbit_spread(primary_star)
+
     du.update_star_table(primary_star)
     if primary_companion is not None:
         du.update_star_table(primary_companion)
     for each_star in secondary_stars:
         du.update_star_table(each_star)
-    system.number_of_secondary_stars_in_system = len(secondary_stars)
-    system.get_baseline_number(primary_star)
-    system.get_baseline_orbit_number(primary_star)
-    system.get_empty_orbits()
-    system.get_orbit_spread(primary_star)
 
 def system_present(parms: bodies.Parameters, location: str):
     # returns a True or False if a system is present based on the frequency provided
@@ -300,18 +325,19 @@ def build_system(parms: bodies.Parameters, location, subsector):
         number_of_terrestrial_planets=-1,
         total_system_orbits=0,
         baseline_number=-1,
-        baseline_orbit_number = -1,
+        baseline_orbit_number=-1,
         empty_orbits=-1,
-        orbit_spread=-1
+        orbit_spread=-1,
+        anomalous_orbits=-1
     )
     build_stars(new_system, parms)
     new_system.get_number_of_gas_giants()
     new_system.get_number_of_planetoid_belts()
     new_system.get_number_of_terrestrial_planets()
-
-
-
+    new_system.get_anomalous_orbits()
     du.insert_system_details(new_system)
+
+
 
 
 

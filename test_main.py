@@ -5,6 +5,7 @@ from bodies import Parameters
 import database_utils as du
 import generic_functions as gf
 import build_functions as bf
+import build_world_functions as bw
 
 logging.basicConfig(
 #    filename='stellar_build.log',
@@ -29,6 +30,7 @@ for each_location in location_list:
 
     if bf.system_present(parms, each_location):
         bf.build_system(parms, each_location, subsector)
+        bw.build_worlds(parms, each_location)
 
 
 

@@ -20,7 +20,8 @@ def create_system_details_table(db_name: str):
         baseline_number INT,
         baseline_orbit_number REAL,
         empty_orbits INT,
-        orbit_spread REAL
+        orbit_spread REAL,
+        anomalous_orbits INT
     )
     '''
 
@@ -81,6 +82,28 @@ def create_star_details_table(db_name: str):
     conn.close()
 
 
+def create_world_details_table(db_name: str):
+    # Creates the world details table in the database named db_name
+    sql_create_world_table = '''
+    CREATE TABLE world_details(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        location TEXT,
+        orbit_slot TEXT,
+        star_designation TEXT,
+        orbit_number REAL,
+        world_type TEXT
+    )
+    '''
+
+    conn = sqlite3.connect(db_name)
+    c = conn.cursor()
+    c.execute('DROP TABLE IF EXISTS world_details')
+    c.execute(sql_create_world_table)
+    conn.commit()
+    c.close()
+    conn.close()
+
+
 def create_dice_rolls_table(db_name: str):
     # Creates the stellar_bodies table in the database named db_name
     sql_create_dice_rolls = '''
@@ -119,8 +142,9 @@ def insert_system_details(system_details: object):
     baseline_number,
     baseline_orbit_number,
     empty_orbits,
-    orbit_spread)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    orbit_spread,
+    anomalous_orbits)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     '''
     values_to_insert = (
         system_details.location,
@@ -137,7 +161,8 @@ def insert_system_details(system_details: object):
         system_details.baseline_number,
         system_details.baseline_orbit_number,
         system_details.empty_orbits,
-        system_details.orbit_spread
+        system_details.orbit_spread,
+        system_details.anomalous_orbits
     )
 
     conn = sqlite3.connect(system_details.db_name)
@@ -258,9 +283,99 @@ def insert_dice_rolls(db_name: str, dice_details: object):
 def create_sql_tables(parms):
     create_system_details_table(parms.db_name)
     create_star_details_table(parms.db_name)
+    create_world_details_table(parms.db_name)
     create_dice_rolls_table(parms.db_name)
 
 
 def update_star_table(star):
     insert_star_details(star)
 
+
+def get_system_info(parms, system_location):
+    sql_select_system = '''
+    SELECT 
+        number_of_gas_giants,
+        number_of_planetoid_belts,
+        number_of_terrestrial_planets,
+        total_system_orbits,
+        baseline_number,
+        baseline_orbit_number,
+        empty_orbits,
+        orbit_spread,
+        anomalous_orbits
+    FROM system_details WHERE location = ?
+    '''
+
+    conn = sqlite3.connect(parms.db_name)
+    c = conn.cursor()
+    c.execute(sql_select_system, (system_location,))  # Pass system_location as a tuple
+    row = c.fetchone()  # Fetch the result
+
+    if row:
+        # Create a dictionary with column names as keys
+        column_names = [description[0] for description in c.description]
+        system_info = dict(zip(column_names, row))
+    else:
+        system_info = None
+
+    conn.close()  # Close the connection after fetching the data
+    return system_info
+
+
+def get_star_info(parms, system_location):
+    sql_select_star = '''
+    SELECT 
+        star_designation,
+        minimum_allowable_orbit_number,
+        maximum_allowable_orbit_number,
+        restricted_close_orbit_start,
+        restricted_close_orbit_end,
+        restricted_near_orbit_start,
+        restricted_near_orbit_end,
+        restricted_far_orbit_start,
+        restricted_far_orbit_end,
+        orbit_number_range,
+        habitable_zone_center,
+        total_star_orbits
+    FROM star_details WHERE location = ?
+    '''
+    conn = sqlite3.connect(parms.db_name)
+    c = conn.cursor()
+    c.execute(sql_select_star, (system_location,))
+    rows = c.fetchall()  # Fetch all results
+
+    star_info_list = []
+    if rows:
+        column_names = [description[0] for description in c.description]
+        for row in rows:
+            star_info = dict(zip(column_names, row))
+            star_info_list.append(star_info)
+
+    conn.close()
+    return star_info_list
+
+
+def insert_world_details(world_details: object):
+    sql_insert_world_details = '''
+    INSERT INTO world_details
+    (location,
+    orbit_slot,
+    star_designation,
+    world_type)
+    VALUES (?,?,?,?)
+    '''
+
+    values_to_insert = (
+        world_details.location,
+        world_details.orbit_slot,
+        world_details.star_designation,
+        world_details.orbit_number,
+        world_details.world_type
+    )
+
+    conn = sqlite3.connect(world_details.db_name)
+    c = conn.cursor()
+    c.execute(sql_insert_world_details, values_to_insert)
+    conn.commit()
+    c.close()
+    conn.close()

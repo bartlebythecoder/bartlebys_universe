@@ -47,6 +47,7 @@ class System:
     baseline_orbit_number: float
     empty_orbits: int
     orbit_spread: float
+    anomalous_orbits: int
 
     def gas_giant_check(self):
         die_roll = gf.roll_dice(1)
@@ -271,6 +272,10 @@ class System:
                         self.baseline_orbit_number = star.minimum_allowable_orbit_number + (total_worlds * .01)
 
     def get_empty_orbits(self):
+        # This function does not change the star_orbit or total_system_orbit.
+        # Needs to be handled at the planet creation phase
+        # The start details have already been written
+
         dice_roll = gf.roll_dice(2)
         dice_info = DiceRoll(
             location=self.location,
@@ -278,6 +283,7 @@ class System:
             reason='empty orbits',
             dice_result=dice_roll,
             table_result=str(dice_roll))
+        du.insert_dice_rolls(self.db_name, dice_info)
 
         if dice_roll <= 9:
             self.empty_orbits = 0
@@ -288,13 +294,39 @@ class System:
         else:
             self.empty_orbits = 3
 
-    def get_orbit_spread(self, star:object):
+    def get_orbit_spread(self, star: object):
         if self.baseline_number > 1:
             self.orbit_spread = ((self.baseline_orbit_number - star.minimum_allowable_orbit_number) /
                                  self.baseline_number)
         else:
             self.orbit_spread = (star.total_star_orbits /
                                  (star.total_star_orbits + self.empty_orbits + self.number_of_stars_in_system))
+
+    def get_anomalous_orbits(self):
+        dice_roll = gf.roll_dice(2)
+        dice_info = DiceRoll(
+            location=self.location,
+            number=2,
+            reason='anomalous_orbits',
+            dice_result=dice_roll,
+            table_result=str(dice_roll))
+        du.insert_dice_rolls(self.db_name, dice_info)
+
+        if dice_roll <= 9:
+            self.anomalous_orbits = 0
+        elif dice_roll <= 10:
+            self.anomalous_orbits = 1
+            self.number_of_terrestrial_planets += 1
+        elif dice_roll <= 11:
+            self.anomalous_orbits = 2
+            self.number_of_terrestrial_planets += 2
+        else:
+            self.anomalous_orbits = 3
+            self.number_of_terrestrial_planets += 3
+        if self.number_of_terrestrial_planets > 13:
+            self.number_of_planetoid_belts += self.number_of_terrestrial_planets - 13
+            self.number_of_terrestrial_planets = 13
+
 
 
 
@@ -1193,7 +1225,14 @@ class Star:
             return self.get_random_baseline_number(system)
 
 
-
+@dataclass
+class World:
+    db_name: str
+    location: str
+    orbit_slot: str
+    star_designation: str
+    orbit_number: float
+    world_type: str
 
 def is_hotter(smaller: Star, main: Star):
     """Given two stars, smaller and main, checks to see if the smaller is hotter than the main"""
@@ -1309,6 +1348,7 @@ def add_secondary_orbit_constraints(secondary_stars: list, system: System):
         logging.info(f'System Orbits {system.total_system_orbits}')
 
     return return_stars_list
+
 
 
 def extrapolate_table(x: float, data: dict):

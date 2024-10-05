@@ -1,14 +1,13 @@
 import tkinter as tk
+import random
 from math import sqrt
 
+from bodies import Parameters
+import database_utils as du
 import lookup_tables as lu
 import math_functions as mf
 import generic_functions as gf
-
-
-hex_label_dy = lu.subsector_hex_centers_dy
-hex_centers = gf.dict_to_indexed_list(hex_label_dy)
-hexes_chosen = {}
+import build_functions as bf
 
 
 def draw_hexagon(canvas, center_x, center_y, size, color="white"):
@@ -67,7 +66,7 @@ def create_tooltip(canvas, circle, text):
 
 
 
-def add_circle(event, hex_centers_list, hex_label_dy):
+def add_circle(event, hex_centers_list, hex_label_dy, parms, subsector):
     """
     Adds a red circle to the canvas at the clicked coordinates and associates a tooltip.
     """
@@ -92,6 +91,8 @@ def add_circle(event, hex_centers_list, hex_label_dy):
         # Pass the circle object directly
         print(f'placing tool tip here:  {hex_label_dy[new_hex_label]}')
         create_tooltip(canvas, circle, text=f"Hex: {new_hex_label}")
+        subsector = subsector_dy[new_hex_label]
+        bf.build_system(parms, new_hex_label, subsector)
 
 
     else:
@@ -100,6 +101,19 @@ def add_circle(event, hex_centers_list, hex_label_dy):
         del hexes_chosen[new_hex_label]
 
 
+hex_label_dy = lu.subsector_hex_centers_dy
+hex_centers = gf.dict_to_indexed_list(hex_label_dy)
+hexes_chosen = {}
+
+parms = Parameters(
+    db_name='brock_3_map.db',
+    build=0,
+    frequency=2,
+    random_seed=3)
+
+random.seed(parms.random_seed)
+du.create_sql_tables(parms)
+subsector_dy, location_list = gf.get_location_details()
 
 
 # Create the main window
@@ -121,6 +135,6 @@ cell_size = 30  # Radius of the inscribed circle
 
 # Draw the grid
 draw_hex_grid(canvas, cell_size, column_count, row_count)
-canvas.bind("<Button-1>", lambda event: add_circle(event, hex_centers, hex_label_dy))
+canvas.bind("<Button-1>", lambda event: add_circle(event, hex_centers, hex_label_dy, parms, subsector_dy))
 
 root.mainloop()
