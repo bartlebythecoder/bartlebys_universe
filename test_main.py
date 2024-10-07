@@ -14,7 +14,7 @@ logging.basicConfig(
 )
 
 parms = Parameters(
-    db_name='brock_3.db',
+    db_name='brock_4.db',
     build=0,
     frequency=2,
     random_seed=3)
