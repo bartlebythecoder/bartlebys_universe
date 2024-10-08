@@ -2,10 +2,11 @@ import sqlite3
 import time
 import logging
 
-def create_system_details_table(db_name: str):
+
+def create_system_stellar_details_table(db_name: str):
     # Creates the system details table in the database named db_name
     sql_create_system_table = '''
-    CREATE TABLE system_details(
+    CREATE TABLE system_stellar_details(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         location TEXT,
         subsector TEXT,
@@ -14,10 +15,6 @@ def create_system_details_table(db_name: str):
         number_of_stars_in_system INT,
         stars_in_system TEXT,
         number_of_secondary_stars_in_system,
-        number_of_gas_giants INT,
-        number_of_planetoid_belts INT,
-        number_of_terrestrial_planets INT,
-        total_system_orbits INT,
         baseline_number INT,
         baseline_orbit_number REAL,
         empty_orbits INT,
@@ -29,7 +26,72 @@ def create_system_details_table(db_name: str):
     conn = sqlite3.connect(db_name)
     c = conn.cursor()
     try:
-        c.execute('DROP TABLE IF EXISTS system_details')
+        c.execute('DROP TABLE IF EXISTS system_stellar_details')
+        c.execute(sql_create_system_table)
+        conn.commit()
+    finally:
+        c.close()
+    conn.close()
+
+
+def insert_system_stellar_details(system_details: object):
+    sql_insert_system_details = '''
+    INSERT INTO system_stellar_details
+    (location,
+    subsector,
+    system_age,
+    primary_star_class,
+    number_of_stars_in_system,
+    stars_in_system,
+    number_of_secondary_stars_in_system,
+    baseline_number,
+    baseline_orbit_number,
+    empty_orbits,
+    orbit_spread,
+    anomalous_orbits)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+    '''
+    values_to_insert = (
+        system_details.location,
+        system_details.subsector,
+        system_details.system_age,
+        system_details.primary_star_class,
+        system_details.number_of_stars_in_system,
+        str(system_details.stars_in_system),
+        system_details.number_of_secondary_stars_in_system,
+        system_details.baseline_number,
+        system_details.baseline_orbit_number,
+        system_details.empty_orbits,
+        system_details.orbit_spread,
+        system_details.anomalous_orbits
+    )
+
+    conn = sqlite3.connect(system_details.db_name)
+    c = conn.cursor()
+    try:
+        c.execute(sql_insert_system_details, values_to_insert)
+        conn.commit()
+    finally:
+        c.close()
+    conn.close()
+
+
+def create_system_orbital_details_table(db_name: str):
+    # Creates the system details table in the database named db_name
+    sql_create_system_table = '''
+    CREATE TABLE system_orbital_details(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        location TEXT,
+        number_of_gas_giants INT,
+        number_of_planetoid_belts INT,
+        number_of_terrestrial_planets INT
+    )
+    '''
+
+    conn = sqlite3.connect(db_name)
+    c = conn.cursor()
+    try:
+        c.execute('DROP TABLE IF EXISTS system_orbital_details')
         c.execute(sql_create_system_table)
         conn.commit()
     finally:
@@ -134,44 +196,23 @@ def create_dice_rolls_table(db_name: str):
         conn.close()
 
 
-def insert_system_details(system_details: object):
+
+
+
+def insert_system_orbital_details(system_details: object):
     sql_insert_system_details = '''
-    INSERT INTO system_details
+    INSERT INTO system_orbital_details
     (location,
-    subsector,
-    system_age,
-    primary_star_class,
-    number_of_stars_in_system,
-    stars_in_system,
-    number_of_secondary_stars_in_system,
     number_of_gas_giants,
     number_of_planetoid_belts,
-    number_of_terrestrial_planets,
-    total_system_orbits,
-    baseline_number,
-    baseline_orbit_number,
-    empty_orbits,
-    orbit_spread,
-    anomalous_orbits)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    number_of_terrestrial_planets)
+    VALUES (?,?,?,?)
     '''
     values_to_insert = (
         system_details.location,
-        system_details.subsector,
-        system_details.system_age,
-        system_details.primary_star_class,
-        system_details.number_of_stars_in_system,
-        str(system_details.stars_in_system),
-        system_details.number_of_secondary_stars_in_system,
         system_details.number_of_gas_giants,
         system_details.number_of_planetoid_belts,
         system_details.number_of_terrestrial_planets,
-        system_details.total_system_orbits,
-        system_details.baseline_number,
-        system_details.baseline_orbit_number,
-        system_details.empty_orbits,
-        system_details.orbit_spread,
-        system_details.anomalous_orbits
     )
 
     conn = sqlite3.connect(system_details.db_name)
@@ -181,7 +222,7 @@ def insert_system_details(system_details: object):
         conn.commit()
     finally:
         c.close()
-        conn.close()
+    conn.close()
 
 
 def insert_star_details(star_details: object):
@@ -263,7 +304,7 @@ def insert_star_details(star_details: object):
         conn.commit()
     finally:
         c.close()
-        conn.close()
+    conn.close()
 
 
 def insert_dice_rolls(db_name: str, dice_details: object):
@@ -299,23 +340,26 @@ def insert_dice_rolls(db_name: str, dice_details: object):
         conn.commit()
     finally:
         c.close()
-        conn.close()
+    conn.close()
 
 
 def get_system_info(parms, system_location):
     sql_select_system = '''
     SELECT 
-        location,
-        number_of_gas_giants,
-        number_of_planetoid_belts,
-        number_of_terrestrial_planets,
-        total_system_orbits,
-        baseline_number,
-        baseline_orbit_number,
-        empty_orbits,
-        orbit_spread,
-        anomalous_orbits
-    FROM system_details WHERE location = ?
+        sd.location,
+        od.number_of_gas_giants,
+        od.number_of_planetoid_belts,
+        od.number_of_terrestrial_planets,
+        sd.total_system_orbits,
+        sd.baseline_number,
+        sd.baseline_orbit_number,
+        sd.empty_orbits,
+        sd.orbit_spread,
+        sd.anomalous_orbits
+    FROM system_stellar_details sd 
+    LEFT JOIN system_orbital_details od
+    ON sd.location = od.location
+    WHERE sd.location = ?
     '''
 
     conn = sqlite3.connect(parms.db_name)
@@ -405,7 +449,8 @@ def insert_orbit_details(world_details: object):
 
 
 def create_sql_tables(parms):
-    create_system_details_table(parms.db_name)
+    create_system_stellar_details_table(parms.db_name)
+    create_system_orbital_details_table(parms.db_name)
     create_star_details_table(parms.db_name)
     create_orbit_details_table(parms.db_name)
     create_dice_rolls_table(parms.db_name)

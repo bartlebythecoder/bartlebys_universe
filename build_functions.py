@@ -164,7 +164,7 @@ def build_companion_star(main: bodies.Star, parms: bodies.Parameters):
     return companion
 
 
-def process_secondary_star_loop(system: bodies.System, primary_star: bodies.Star, parms: bodies.Parameters):
+def process_secondary_star_loop(system: bodies.SystemStellarDetails, primary_star: bodies.Star, parms: bodies.Parameters):
     secondary_stars = []
     secondary_list = ['close', 'near', 'far']
     designation_list = ['B', 'C', 'D', 'X']
@@ -248,14 +248,11 @@ def build_primary_star(system, parms):
     return primary_star, companion_star
 
 
-def build_stars(system: bodies.System, parms: bodies.Parameters):
+def build_stars(system: bodies.SystemStellarDetails, parms: bodies.Parameters):
     primary_star, primary_companion = build_primary_star(system, parms)
     secondary_stars = process_secondary_star_loop(system, primary_star, parms)
     primary_star.get_primary_orbit_number_range()
     primary_star.get_total_star_orbits()
-    system.total_system_orbits += primary_star.total_star_orbits
-    logging.info(f'Total System Orbits {system.total_system_orbits}')
-
 
     system.number_of_secondary_stars_in_system = len(secondary_stars)
     system.get_baseline_number(primary_star)
@@ -310,7 +307,7 @@ def system_present(parms: bodies.Parameters, location: str):
 
 
 def build_system(parms: bodies.Parameters, location, subsector):
-    new_system = bodies.System(
+    new_system = bodies.SystemStellarDetails(
         db_name=parms.db_name,
         build=parms.build,
         location=location,
@@ -320,10 +317,6 @@ def build_system(parms: bodies.Parameters, location, subsector):
         number_of_stars_in_system=0,
         stars_in_system=[],
         number_of_secondary_stars_in_system=-1,
-        number_of_gas_giants=-1,
-        number_of_planetoid_belts=-1,
-        number_of_terrestrial_planets=-1,
-        total_system_orbits=0,
         baseline_number=-1,
         baseline_orbit_number=-1,
         empty_orbits=-1,
@@ -331,12 +324,25 @@ def build_system(parms: bodies.Parameters, location, subsector):
         anomalous_orbits=-1
     )
     build_stars(new_system, parms)
-    new_system.get_number_of_gas_giants()
-    new_system.get_number_of_planetoid_belts()
-    new_system.get_number_of_terrestrial_planets()
-    new_system.get_anomalous_orbits()
-    du.insert_system_details(new_system)
+    du.insert_system_stellar_details(new_system)
 
+    star_list = du.get_star_info(parms, location)
+
+    system_orbits = bodies.SystemOrbitalDetails(
+        db_name=parms.db_name,
+        build=parms.build,
+        location=location,
+        number_of_gas_giants=-1,
+        number_of_planetoid_belts=-1,
+        number_of_terrestrial_planets=-1,
+        total_system_orbits = -1
+    )
+    system_orbits.get_number_of_gas_giants(new_system)
+    system_orbits.get_number_of_planetoid_belts(new_system)
+    system_orbits.get_number_of_terrestrial_planets(new_system)
+    system_orbits.get_total_system_orbits(star_list)
+    logging.info(f'System Orbital Details {system_orbits}')
+    du.insert_system_orbital_details(system_orbits)
 
 
 

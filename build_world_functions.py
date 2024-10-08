@@ -1,5 +1,6 @@
 import time
 import logging
+import math
 
 import bodies
 import database_utils as du
@@ -10,6 +11,21 @@ def get_world_info(parms: bodies.Parameters, location: str):
     system_dy = du.get_system_info(parms, location)
     star_list = du.get_star_info(parms, location)
     return system_dy, star_list
+
+def calculate_world_star_total(parms: bodies.Parameters, star_info_dy: dict):
+    system_dy = star_info_dy['system_dy']
+    star_list = star_info_dy['star_list']
+    location = system_dy['location']
+    for each_star in star_list:
+        system_total_worlds = (system_dy['number_of_gas_giants'] + system_dy['number_of_planetoid_belts']
+                               + system_dy['number_of_terrestrial_planets'])
+        fraction = system_total_worlds * each_star['total_star_orbits'] / system_dy['total_system_orbits']
+        if each_star['orbit_class'] == 'primary':
+            fraction = math.ceil(fraction)
+        else:
+            fraction = math.floor(fraction)
+
+        each_star['world_total'] = fraction
 
 
 def orbit_number_restriction_adjustment(orbit_number, star):
@@ -129,15 +145,14 @@ def build_anomalous_orbits(parm, star_info_dy):
         for each_orbit in range(0, number_of_anomalous_orbits):
             anomalous_orbit_type = get_anomalous_orbit_type(parm, location)
 
-
-
-
-
 def build_worlds(parms: bodies.Parameters, location: str):
     system_dy, star_list = get_world_info(parms, location)
     star_info_dy = {
         'system_dy': system_dy,
         'star_list': star_list
             }
+    calculate_world_star_total(parms, star_info_dy)
+    logging.info(f'Star Info: {star_info_dy['star_list']}')
     build_orbits(parms, star_info_dy)
     build_anomalous_orbits(parms, star_info_dy)
+
