@@ -80,3 +80,25 @@ def dict_to_indexed_list(data_dict):
 def is_between(x: float, a: float, b: float):
     """ Checks if a number `x` is between two floats `a` and `b` (inclusive). """
     return a <= x <= b
+
+def extrapolate_table(x: float, data: dict):
+    def get_keys(x_var):
+        old_key = 0
+        for key in data:
+            if key > x_var:
+                return old_key, key
+            else:
+                old_key = key
+        return -1, -1
+
+    if x in data:
+        return data[x]
+
+    else:  # Handle fractional inputs using interpolation
+        lower, upper = get_keys(x)
+        lower_y = data[lower]
+        upper_y = data[upper]
+
+        fractional_part = (x - lower) / (upper - lower)
+        estimated_y = lower_y + fractional_part * (upper_y - lower_y)
+        return estimated_y

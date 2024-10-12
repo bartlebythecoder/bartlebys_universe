@@ -2,10 +2,9 @@ import logging
 import random
 
 from bodies import Parameters
+from bartlebys_universe import mgt_stellar_functions as mgt_stars
+from bartlebys_universe import mgt_system_functions as mgt_systems
 import database_utils as du
-import generic_functions as gf
-import build_functions as bf
-import build_world_functions as bw
 
 logging.basicConfig(
 #    filename='stellar_build.log',
@@ -14,23 +13,17 @@ logging.basicConfig(
 )
 
 parms = Parameters(
-    db_name='brock_4.db',
+    db_name='brock_6.db',
     build=0,
     frequency=2,
     random_seed=3)
 
 random.seed(parms.random_seed)
-du.create_sql_tables(parms)
-subsector_dy, location_list = gf.get_location_details()
+du.create_dice_rolls_table(parms.db_name)
+#mgt_stars.build_stellar_details(parms)
+mgt_systems.build_system_details(parms)
 
-for each_location in location_list:
 
-    logging.info(f'{each_location}')
-    subsector = subsector_dy[each_location]
-
-    if bf.system_present(parms, each_location):
-        bf.build_system(parms, each_location, subsector)
-        bw.build_worlds(parms, each_location)
 
 
 
