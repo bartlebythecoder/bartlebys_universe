@@ -18,7 +18,6 @@ class Star:
     build: int
     location: str
     designation: str
-    orbit_category: str
     orbit_class: str
     generation_type: str
     orbit_number: float

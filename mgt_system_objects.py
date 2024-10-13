@@ -15,15 +15,11 @@ class System:
     location: str
     subsector: str
     system_age: float
-    primary_star_class: str
-    number_of_stars_in_system: int
-    stars_in_system: list
-    number_of_secondary_stars_in_system: int
 
     number_of_gas_giants: int
     number_of_planetoid_belts: int
     number_of_terrestrial_planets: int
-    total_number_of_planets: int
+    total_number_of_worlds: int
 
     total_system_orbits: int
     baseline_number: int

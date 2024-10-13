@@ -28,12 +28,5 @@ class Parameters:
     random_seed: int
 
 
-@dataclass
-class World:
-    db_name: str
-    location: str
-    orbit_slot: str
-    star_designation: str
-    orbit_number: float
-    world_type: str
+
 
