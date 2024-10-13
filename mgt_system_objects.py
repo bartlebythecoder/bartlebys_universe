@@ -47,7 +47,7 @@ class System:
         self.number_of_gas_giants = -1
         self.number_of_planetoid_belts = -1
         self.number_of_terrestrial_planets = -1
-        self.total_number_of_planets = -1
+        self.total_number_of_worlds = -1
 
         self.total_system_orbits = -1
         self.baseline_number = -1
@@ -55,6 +55,17 @@ class System:
         self.empty_orbits = -1
         self.orbit_spread = -1
         self.anomalous_orbits = -1
+
+    def get_subsector(self):
+        subsector_dy, location_list = gf.get_location_details()
+        self.subsector = subsector_dy[self.location]
+
+    def get_system_age(self, star_list: list):
+        max_age = 0
+        for each_star in star_list:
+            if each_star.star_age is not None and each_star.star_age > max_age:
+                max_age = each_star.star_age
+        self.system_age = max_age
 
     def gas_giant_check(self):
         die_roll = gf.roll_dice(1)
@@ -71,9 +82,9 @@ class System:
         else:
             return False
 
-    def get_number_of_gas_giants(self, new_system):
+    def get_number_of_gas_giants(self, star_list):
         if self.gas_giant_check():
-            dm = get_gas_giant_dm(new_system)
+            dm = get_gas_giant_dm(star_list)
 
             dice_roll = gf.roll_dice(2)
             dice_roll += dm
@@ -115,25 +126,32 @@ class System:
         else:
             return False
 
-    def get_planetoid_belt_dm(self, new_system):
+    def get_planetoid_belt_dm(self, star_list):
         dm = 0
-        if new_system.number_of_gas_giants >= 1:
+        if self.number_of_gas_giants >= 1:
+            logging.info('PB DM +1 due to gas giant presence')
             dm += 1
 
-        if new_system.primary_star_class == 'D':
+        if star_list[0].star_class == 'D':
+            logging.info('PB DM +1 due to primary D star')
             dm += 1
 
-        count_post_stellars = new_system.stars_in_system.count('D')
+        count_post_stellars = 0
+        for each_star in star_list:
+            if each_star.star_class == 'D':
+                count_post_stellars += 1
+
+        logging.info(f'PB DM {count_post_stellars} equaling total of White Dwarfs (post stellars')
         dm += count_post_stellars
 
-        if new_system.number_of_stars_in_system >= 2:
+        if len(star_list) >= 2:
             dm += 1
 
         return dm
 
-    def get_number_of_planetoid_belts(self, new_system):
+    def get_number_of_planetoid_belts(self, star_list):
         if self.gas_planetoid_belt_check():
-            dm = self.get_planetoid_belt_dm(new_system)
+            dm = self.get_planetoid_belt_dm(star_list)
 
             dice_roll = gf.roll_dice(2)
             dice_roll += dm
@@ -154,10 +172,16 @@ class System:
         else:
             self.number_of_planetoid_belts = 0
 
-    def get_number_of_terrestrial_planets(self, new_system):
+    def get_number_of_terrestrial_planets(self, star_list):
+
         dm = -2
-        count_post_stellars = new_system.stars_in_system.count('D')
-        dm -= count_post_stellars
+
+        count_post_stellars = 0
+        for each_star in star_list:
+            if each_star.star_class == 'D':
+                count_post_stellars -= 1
+        logging.info(f'TP DM {count_post_stellars} equaling total of White Dwarfs (post stellars')
+        dm += count_post_stellars
 
         first_roll = gf.roll_dice(2)
         first_roll += dm
@@ -196,23 +220,31 @@ class System:
 
             self.number_of_terrestrial_planets = first_roll + third_roll
 
+    def get_total_worlds(self):
+        self.total_number_of_worlds = (self.number_of_gas_giants + self.number_of_planetoid_belts +
+                                       self.number_of_terrestrial_planets)
+        logging.info(f'Total worlds: {self.total_number_of_worlds}')
+
     def get_total_system_orbits(self, star_list):
         total_system_orbits = 0
         for each_star in star_list:
-            total_system_orbits += each_star['total_star_orbits']
+            total_system_orbits += each_star.total_star_orbits
 
         self.total_system_orbits = total_system_orbits
 
-    def get_baseline_number(self, star: object):
+    def get_baseline_number(self, star_list):
+        star = star_list[0]
         if gf.is_between(star.habitable_zone_center,
                         star.minimum_allowable_orbit_number,
                         star.maximum_allowable_orbit_number):
-            self.baseline_number = star.hzco_is_available(self)
+            self.baseline_number = star.hzco_is_available(star_list, self.total_number_of_worlds)
         else:
             self.baseline_number = 0
 
-    def get_baseline_orbit_number(self, star):
-        total_worlds = self.number_of_gas_giants + self.number_of_planetoid_belts + self.number_of_terrestrial_planets
+    def get_baseline_orbit_number(self, star_list):
+
+        star = star_list[0]
+        total_worlds = self.total_number_of_worlds
 
         if 1 <= self.baseline_number < total_worlds:
             dice_roll = gf.roll_dice(2) - 7
@@ -289,7 +321,8 @@ class System:
         else:
             self.empty_orbits = 3
 
-    def get_orbit_spread(self, star: object):
+    def get_orbit_spread(self, star_list: list):
+        star = star_list[0]
         if self.baseline_number > 1:
             self.orbit_spread = ((self.baseline_orbit_number - star.minimum_allowable_orbit_number) /
                                  self.baseline_number)
@@ -323,21 +356,30 @@ class System:
             self.number_of_terrestrial_planets = 13
 
 
-def get_gas_giant_dm(new_system):
+def get_gas_giant_dm(star_list):
     dm = 0
-    if new_system.primary_star_class == 'V' and new_system.number_of_stars_in_system == 1:
+    if star_list[0].star_class == 'V' and len(star_list) == 1:
+        logging.info('GG DM +1 System consists of a single Class V star')
         dm += 1
 
-    if new_system.primary_star_class == 'BD':
+    if star_list[0].star_class == 'BD':
+        logging.info('GG DM -2 Primary star is a brown dwarf')
         dm -= 2
 
-    if new_system.primary_star_class == 'D':
+    if star_list[0].star_class == 'D':
+        logging.info('GG DM -2 Primary star is a white dwarf (post stellar object)')
         dm -= 2
 
-    count_post_stellars = new_system.stars_in_system.count('D')
-    dm -= count_post_stellars
+    for each_star in star_list:
+        post_stellar = 0
+        if each_star.star_class == 'D':
+            post_stellar +=1
+        logging.info(f'GG DM -{post_stellar} due to post_stellar')
+        dm -= post_stellar
 
-    if new_system.number_of_stars_in_system >= 4:
+    if len(star_list) >= 4:
+        logging.info(f'GG DM -1 due to post_stellar')
         dm -= 1
 
+    logging.info(f'Total GG dm is {dm}')
     return dm

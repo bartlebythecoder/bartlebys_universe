@@ -861,7 +861,7 @@ class Star:
             logging.info(f'No star orbits. {self.orbit_number_range} ')
             self.total_star_orbits = 0
 
-    def get_random_baseline_number(self, system):
+    def get_random_baseline_number(self, star_list, total_worlds):
         dm = 0
         if self.designation == 'Aa': dm -= 2
         if self.star_class in ['Ia','Ib','II']: dm += 3
@@ -870,9 +870,6 @@ class Star:
         elif self.star_class == 'VI': dm -= 1
         elif self.star_class == 'D': dm -= 2
 
-        total_worlds = (system.number_of_gas_giants + system.number_of_planetoid_belts +
-                        system.number_of_terrestrial_planets)
-
         if total_worlds < 6: dm -= 4
         elif total_worlds <= 9: dm -= 3
         elif total_worlds <= 12: dm -= 2
@@ -880,8 +877,12 @@ class Star:
         elif total_worlds <= 20: dm += 1
         else: dm += 2
 
-        if system.number_of_secondary_stars_in_system > 0:
-            dm -= system.number_of_secondary_stars_in_system
+        total_secondary_stars = 0
+        for each_star in star_list:
+            if each_star.orbit_class in ['near', 'close', 'far']:
+                total_secondary_stars += 1
+
+        dm -= total_secondary_stars
 
         dice_roll = gf.roll_dice(2) + dm
 
@@ -896,7 +897,7 @@ class Star:
         return dice_roll
 
 
-    def hzco_is_available(self, system):
+    def hzco_is_available(self, star_list, total_worlds):
         if self.restricted_close_orbit_start is not None and (gf.is_between(self.habitable_zone_center,
                          self.restricted_close_orbit_start,
                          self.restricted_close_orbit_end)):
@@ -905,7 +906,7 @@ class Star:
             else:
                 return math.floor(self.restricted_close_orbit_start - self.minimum_allowable_orbit_number + 1)
         else:
-            return self.get_random_baseline_number(system)
+            return self.get_random_baseline_number(star_list, total_worlds)
 
 
 def is_hotter(smaller: Star, main: Star):
@@ -1082,7 +1083,10 @@ def extrapolate_table(x: float, data: dict):
 def get_star_list_from_dy_list(parms: Parameters, dy_list: list):
     star_list = []
     for each_star in dy_list:
-        star_object = Star(parms, each_star['location'])
+        star_object = Star.__new__(Star)
+        star_object.db_name = parms.db_name
+        star_object.build = parms.build
+        star_object.location = each_star['location']
         star_object.designation = each_star['designation']
         star_object.orbit_class = each_star['orbit_class']
         star_object.generation_type = each_star['generation_type']
