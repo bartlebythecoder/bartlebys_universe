@@ -275,7 +275,8 @@ def create_world_details_table(db_name: str):
         location TEXT,
         orbit_slot INT,
         star_designation TEXT,
-        orbit_number REAL
+        orbit_number REAL,
+        world_type TEXT
     )
     '''
     conn = sqlite3.connect(db_name)
@@ -327,6 +328,32 @@ def get_star_info(parms, system_location):
             star_info_list.append(star_info)
 
     return star_info_list
+
+
+def update_orbit_details_in_system(parms, system):
+    sql_update_details = '''
+    UPDATE system_details
+    SET baseline_orbit_number = ?,
+        orbit_spread = ?
+    WHERE location = ?
+    '''
+
+    values_to_update = (
+        system.baseline_orbit_number,
+        system.orbit_spread,
+        system.location
+    )
+    logging.info(f'Updating system_details {values_to_update}')
+    conn = sqlite3.connect(parms.db_name)
+    c = conn.cursor()
+
+    try:
+        c.execute(sql_update_details, values_to_update)
+        conn.commit()
+    finally:
+        c.close()
+
+    conn.close()
 
 
 def insert_orbit_details(world_details: object):

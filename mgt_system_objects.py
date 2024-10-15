@@ -47,9 +47,9 @@ class System:
 
         self.total_system_orbits = -1
         self.baseline_number = -1
-        self.baseline_orbit_number = -1
+        self.baseline_orbit_number = None
         self.empty_orbits = -1
-        self.orbit_spread = -1
+        self.orbit_spread = None
         self.anomalous_orbits = -1
 
     def get_subsector(self):
@@ -219,7 +219,7 @@ class System:
     def get_total_worlds(self):
         self.total_number_of_worlds = (self.number_of_gas_giants + self.number_of_planetoid_belts +
                                        self.number_of_terrestrial_planets)
-        logging.info(f'Total worlds: {self.total_number_of_worlds}')
+        logging.info(f'Calculating a systems total worlds: {self.total_number_of_worlds}')
 
     def get_total_system_orbits(self, star_list):
         total_system_orbits = 0
@@ -242,7 +242,9 @@ class System:
         star = star_list[0]
         total_worlds = self.total_number_of_worlds
 
-        if 1 <= self.baseline_number < total_worlds:
+        logging.info(f'Getting baseline orbit number.  Worlds = {total_worlds}.  Baseline #:  {self.baseline_number}')
+
+        if 1 <= self.baseline_number <= total_worlds:
             dice_roll = gf.roll_dice(2) - 7
             dice_info = DiceRoll(
                 location=self.location,
@@ -256,6 +258,7 @@ class System:
             else:
                 self.baseline_orbit_number = star.habitable_zone_center + (dice_roll / 100)
 
+
         elif self.baseline_number < 1:
             dice_roll = gf.roll_dice(2) - 2
             dice_info = DiceRoll(
@@ -266,7 +269,7 @@ class System:
                 table_result=str(dice_roll))
             du.insert_dice_rolls(self.db_name, dice_info)
 
-            if star.minimum_allowable_orbit_number < 1:
+            if star.minimum_allowable_orbit_number >= 1:
                 self.baseline_orbit_number = (star.habitable_zone_center - self.baseline_number +
                                               total_worlds + (dice_roll / 10))
             else:
@@ -294,6 +297,16 @@ class System:
                     if self.baseline_orbit_number < star.minimum_allowable_orbit_number + (total_worlds * .01):
                         self.baseline_orbit_number = star.minimum_allowable_orbit_number + (total_worlds * .01)
 
+        if self.baseline_orbit_number < 0:
+            self.baseline_orbit_number = star.habitable_zone_center - 0.1
+
+    def update_baseline_orbit_number(self, star, world_number):
+        minimum_baseline_orbit_number = star.minimum_allowable_orbit_number + (world_number * 0.1)
+        if self.baseline_orbit_number is not None and self.baseline_orbit_number < minimum_baseline_orbit_number:
+            logging.info(f'Updated baseline orbit number from '
+                         f'{self.baseline_orbit_number} to {minimum_baseline_orbit_number}')
+            self.baseline_orbit_number = minimum_baseline_orbit_number
+
     def get_empty_orbits(self):
         # This function does not change the star_orbit or total_system_orbit.
         # Needs to be handled at the planet creation phase
@@ -320,11 +333,12 @@ class System:
     def get_orbit_spread(self, star_list: list):
         star = star_list[0]
         if self.baseline_number > 1:
-            self.orbit_spread = ((self.baseline_orbit_number - star.minimum_allowable_orbit_number) /
-                                 self.baseline_number)
+            temp_baseline_number = self.baseline_number
         else:
-            self.orbit_spread = (star.total_star_orbits /
-                                 (star.total_star_orbits + self.empty_orbits + self.number_of_stars_in_system))
+            temp_baseline_number = 1
+
+        self.orbit_spread = ((self.baseline_orbit_number - star.minimum_allowable_orbit_number) /
+                             temp_baseline_number)
 
     def get_anomalous_orbits(self):
         dice_roll = gf.roll_dice(2)
