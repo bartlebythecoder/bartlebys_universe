@@ -21,8 +21,8 @@ parms = Parameters(
 
 random.seed(parms.random_seed)
 du.create_dice_rolls_table(parms.db_name)
-#mgt_stars.build_stellar_details(parms)
-#mgt_systems.build_system_details(parms)
+# mgt_stars.build_stellar_details(parms)
+# mgt_systems.build_system_details(parms)
 mgt_worlds.build_world_details(parms)
 
 

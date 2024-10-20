@@ -4,7 +4,7 @@ import logging
 
 import generic_functions as gf
 import database_utils as du
-import lookup_tables as lu
+import mgt_stellar_objects as mgt_star
 from bodies import Parameters, DiceRoll
 
 
@@ -330,15 +330,24 @@ class System:
         else:
             self.empty_orbits = 3
 
-    def get_orbit_spread(self, star_list: list):
+    def get_orbit_spread(self, star_list: list, worlds_per_star_dy: dict):
         star = star_list[0]
+        total_slots = sum(worlds_per_star_dy.values())
+        allocated_orbits = worlds_per_star_dy['primary']
+
         if self.baseline_number > 1:
             temp_baseline_number = self.baseline_number
+            self.orbit_spread = ((self.baseline_orbit_number - star.minimum_allowable_orbit_number) /
+                                 temp_baseline_number)
         else:
             temp_baseline_number = 1
 
-        self.orbit_spread = ((self.baseline_orbit_number - star.minimum_allowable_orbit_number) /
-                             temp_baseline_number)
+            self.orbit_spread = star.total_star_orbits / (allocated_orbits + len(star_list))
+
+        if total_slots * self.orbit_spread > 20:
+            logging.info(f'NOTE - Adjusted orbit spread due to worlds orbiting beyond 20.  Was {self.orbit_spread}')
+            self.orbit_spread = 20 / (total_slots * self.orbit_spread) * self.orbit_spread
+            logging.info(f'Now {self.orbit_spread}')
 
     def get_anomalous_orbits(self):
         dice_roll = gf.roll_dice(2)

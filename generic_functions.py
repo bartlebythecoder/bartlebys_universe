@@ -1,6 +1,7 @@
 import random
 import csv
 import string
+import logging
 
 
 import lookup_tables as lu
@@ -91,10 +92,18 @@ def extrapolate_table(x: float, data: dict):
                 old_key = key
         return -1, -1
 
+    if x > 20:
+        x = 20
+        logging.info('WARNING - ORBIT NUMBER > 20')
+    elif x < 0:
+        x = 0
+        logging.info('WARNING - ORBIT NUMBER < 0')
+
     if x in data:
         return data[x]
 
     else:  # Handle fractional inputs using interpolation
+
         lower, upper = get_keys(x)
         lower_y = data[lower]
         upper_y = data[upper]
