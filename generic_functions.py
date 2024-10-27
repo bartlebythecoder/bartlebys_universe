@@ -111,3 +111,51 @@ def extrapolate_table(x: float, data: dict):
         fractional_part = (x - lower) / (upper - lower)
         estimated_y = lower_y + fractional_part * (upper_y - lower_y)
         return estimated_y
+
+
+def int_to_hex(dec):
+    # Converts integers to their hex replacements
+    hex_digits = "0123456789ABCDEFGHJ"
+    if dec > 18:
+        dec = 18
+    return hex_digits[dec % 17]
+
+
+def hex_to_int(hex_val):
+    # Converts hex values to integers
+    response = hex_val
+    try:
+        hex_list = ['A','B','C','D','E','F','G','H']
+        hex_dict = {'H': 17,
+                    'G': 16,
+                    'F': 15,
+                    'E': 14,
+                    'D': 13,
+                    'C': 12,
+                    'B': 11,
+                    'A': 10}
+        if hex_val in hex_list: response = int(hex_dict[hex_val])
+        else: response = int(response)
+        return response
+    except Exception as e:
+        logging.debug(f'failed hex_to_int with {hex_val} {e}')
+
+
+def create_sector_coordinate_dy(dy: dict):
+    """
+    Returns a dictionary of x,y hex center coordinates for an entire sector.
+    Requires the coordinates for the 'A' subsector as a dy.
+    """
+
+    subsector_hex_centers_dy = dy.copy()  # Create a copy of the input dictionary
+
+    for xx in range(1, 33):  # Iterate over all x-coordinates
+        for yy in range(1, 41):  # Iterate over all y-coordinates
+            # Calculate the original x and y coordinates within the 'A' subsector
+            original_xx = (xx - 1) % 8 + 1
+            original_yy = (yy - 1) % 10 + 1
+            original_key = f"{original_xx:02d}{original_yy:02d}"
+            new_key = f"{xx:02d}{yy:02d}"
+            subsector_hex_centers_dy[new_key] = subsector_hex_centers_dy[original_key]
+
+    return subsector_hex_centers_dy

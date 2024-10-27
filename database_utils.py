@@ -2,6 +2,18 @@ import sqlite3
 import time
 import logging
 
+def re_connect_to_db(c, conn, db_name):
+    logging.info('Lost connection to DB')
+    logging.info('Reconnecting...')
+    time.sleep(2)
+    conn.commit()
+    c.close()
+    conn.close()
+    conn = sqlite3.connect(db_name)
+    c = conn.cursor()
+    return c, conn
+
+
 def create_dice_rolls_table(db_name: str):
     # Creates the stellar_bodies table in the database named db_name
     sql_create_dice_rolls = '''
@@ -52,16 +64,8 @@ def insert_dice_rolls(db_name: str, dice_details: object):
         c.execute(sql_insert_dice_details, values_to_insert)
 
     except:
-        logging.info('***************ERROR writing dice roll')
-        logging.info('***************Trying something new this line')
-        time.sleep(10)
-        conn.commit()
-        c.close()
-        conn.close()
-        conn = sqlite3.connect(db_name)
-        c = conn.cursor()
+        c, conn = re_connect_to_db(c, conn, db_name)
         c.execute(sql_insert_dice_details, values_to_insert)
-
 
     finally:
 
@@ -194,12 +198,18 @@ def insert_star_details(star_details: object):
 
     conn = sqlite3.connect(star_details.db_name)
     c = conn.cursor()
+
     try:
         c.execute(sql_insert_star_details, values_to_insert)
         conn.commit()
+    except:
+        c, conn = re_connect_to_db(c, conn, star_details.db_name)
+        c.execute(sql_insert_star_details, values_to_insert)
+
     finally:
+        conn.commit()
         c.close()
-    conn.close()
+        conn.close()
 
 
 def create_system_details_table(db_name: str):
@@ -230,7 +240,7 @@ def create_system_details_table(db_name: str):
         conn.commit()
     finally:
         c.close()
-    conn.close()
+        conn.close()
 
 
 def insert_system_details(system_details: object):
@@ -270,15 +280,21 @@ def insert_system_details(system_details: object):
     try:
         c.execute(sql_insert_system_details, values_to_insert)
         conn.commit()
+
+    except:
+        c, conn = re_connect_to_db(c, conn, system_details.db_name)
+        c.execute(sql_insert_system_details, values_to_insert)
+
     finally:
+
+        conn.commit()
         c.close()
-    conn.close()
+        conn.close()
 
-
-def create_world_details_table(db_name: str):
+def create_orbit_details_table(db_name: str):
     # Creates the world details table in the database named db_name
-    sql_create_world_table = '''
-    CREATE TABLE world_details(
+    sql_create_orbit_table = '''
+    CREATE TABLE orbit_details(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         location TEXT,
         orbit_slot INT,
@@ -288,23 +304,24 @@ def create_world_details_table(db_name: str):
         world_type TEXT,
         stars_orbited INT,
         stars_orbited_mass FLOAT,
-        orbit_eccentricity REAL
+        orbit_eccentricity REAL,
+        orbit_period FLOAT
     )
     '''
     conn = sqlite3.connect(db_name)
     c = conn.cursor()
 
     try:
-        c.execute('DROP TABLE IF EXISTS world_details')
-        c.execute(sql_create_world_table)
+        c.execute('DROP TABLE IF EXISTS orbit_details')
+        c.execute(sql_create_orbit_table)
         conn.commit()
     finally:
         c.close()
         conn.close()
 
-def insert_world_details(world_details: object):
-    sql_insert_world_details = '''
-    INSERT INTO world_details
+def insert_orbit_details(orbit_details: object):
+    sql_insert_orbit_details = '''
+    INSERT INTO orbit_details
     (location,
     orbit_slot,
     star_orbit_class,
@@ -313,34 +330,38 @@ def insert_world_details(world_details: object):
     world_type,
     stars_orbited,
     stars_orbited_mass,
-    orbit_eccentricity)
-    VALUES (?,?,?,?,?,?,?,?,?)
+    orbit_eccentricity,
+    orbit_period)
+    VALUES (?,?,?,?,?,?,?,?,?,?)
     '''
 
     values_to_insert = (
-        world_details.location,
-        world_details.orbit_slot,
-        world_details.star_orbit_class,
-        world_details.orbit_number,
-        world_details.orbit_au,
-        world_details.world_type,
-        world_details.stars_orbited,
-        world_details.stars_orbited_mass,
-        world_details.orbit_eccentricity
+        orbit_details.location,
+        orbit_details.orbit_slot,
+        orbit_details.star_orbit_class,
+        orbit_details.orbit_number,
+        orbit_details.orbit_au,
+        orbit_details.world_type,
+        orbit_details.stars_orbited,
+        orbit_details.stars_orbited_mass,
+        orbit_details.orbit_eccentricity,
+        orbit_details.orbit_period
     )
 
-    conn = sqlite3.connect(world_details.db_name)
+    conn = sqlite3.connect(orbit_details.db_name)
     c = conn.cursor()
     try:
-        c.execute(sql_insert_world_details, values_to_insert)
+        c.execute(sql_insert_orbit_details, values_to_insert)
+
     except:
-        logging.info('ERROR!  Writing error.')
-        test = input('Try the DB')
+        c, conn = re_connect_to_db(c, conn, orbit_details.db_name)
+        c.execute(sql_insert_orbit_details, values_to_insert)
 
     finally:
+
+        conn.commit()
         c.close()
-    conn.commit()
-    conn.close()
+        conn.close()
 
 
 
@@ -433,6 +454,24 @@ def get_locations(db_name):
             location_list.append(row[0])
     return location_list
 
+
+def get_subsector_locations(db_name, subsector):
+    sql_select_location = """SELECT location FROM system_details WHERE subsector = ? GROUP BY location """
+    conn = sqlite3.connect(db_name)
+    c = conn.cursor()
+    try:
+        c.execute(sql_select_location, subsector)
+        rows = c.fetchall()  # Fetch all results
+    finally:
+        c.close()
+
+    conn.close()
+
+    location_list = []
+    if rows:
+        for row in rows:
+            location_list.append(row[0])
+    return location_list
 
 def get_star_list(db_name, location):
     sql_star_list = """SELECT  *

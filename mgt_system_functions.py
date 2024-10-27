@@ -64,15 +64,20 @@ def build_system(system, star_list):
     system.get_anomalous_orbits()
 
 
+def build_each_system(parms, each_location):
+    logging.info(f'Building system: {each_location}')
+    dy_star_list = du.get_star_list(parms.db_name, each_location)  # SELECT results into dy
+    star_list = mgt_star.get_star_list_from_dy_list(parms, dy_star_list)  # Converts dy list to object list
+    new_system = mgt_system.System(parms, each_location)  # Creates instance
+    build_system(new_system, star_list)  # populates instance
+    du.insert_system_details(new_system)  # writes instance to DB
+
+
 def build_system_details(parms):
     location_list = du.get_locations(parms.db_name)
     du.create_system_details_table(parms.db_name)
     for each_location in location_list:
-        logging.info(f'Building system: {each_location}')
-        dy_star_list = du.get_star_list(parms.db_name, each_location)  # SELECT results into dy
-        star_list = mgt_star.get_star_list_from_dy_list(parms, dy_star_list)  # Converts dy list to object list
-        new_system = mgt_system.System(parms, each_location)  # Creates instance
-        build_system(new_system, star_list) # populates instance
-        du.insert_system_details(new_system)  # writes instance to DB
+        build_each_system(parms, each_location)
+
 
 

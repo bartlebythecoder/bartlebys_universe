@@ -6,7 +6,7 @@ import database_utils as du
 import mgt_stellar_objects as mgt_star
 import mgt_system_objects as mso
 import mgt_system_functions as msf
-import mgt_world_objects as mwo
+import mgt_orbit_objects as mwo
 import generic_functions as gf
 from bodies import Parameters, DiceRoll
 
@@ -171,9 +171,9 @@ def get_orbit_number(current_star: mgt_star.Star, previous_star: mgt_star.Star,
 
 
 
-def build_world_details(parms: Parameters):
+def build_orbit_details(parms: Parameters):
     location_list = du.get_locations(parms.db_name)
-    du.create_world_details_table(parms.db_name)
+    du.create_orbit_details_table(parms.db_name)
     for each_location in location_list:
         logging.info(f'Location: {each_location}')
         dy_list = du.get_star_list(parms.db_name, each_location)  # SELECT results into dy
@@ -214,9 +214,7 @@ def build_world_details(parms: Parameters):
                     else:
                         orbit_number = -1
 
-
-
-                    world = mwo.World(
+                    orbit = mwo.Orbit(
                         db_name=parms.db_name,
                         location=system.location,
                         orbit_slot=current_slot,
@@ -226,16 +224,18 @@ def build_world_details(parms: Parameters):
                         world_type=world_dy[each_world],
                         stars_orbited=-1,
                         stars_orbited_mass=-1,
-                        orbit_eccentricity=0
+                        orbit_eccentricity=0,
+                        orbit_period=0
                     )
-                    world.get_stars_orbited(each_star, star_list)
-                    world.get_au_from_orbit_number()
+                    orbit.get_stars_orbited(each_star, star_list)
+                    orbit.get_au_from_orbit_number()
 
                     previous_star = current_star
                     previous_orbits = orbit_number
 
-                    world.get_orbit_eccentricity()
-                    du.insert_world_details(world)
+                    orbit.get_orbit_eccentricity()
+                    orbit.get_orbit_period()
+                    du.insert_orbit_details(orbit)
                     current_slot += 1
 
         du.update_orbit_details_in_system(parms, system)
