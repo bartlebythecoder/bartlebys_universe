@@ -3,11 +3,13 @@ import random
 from math import sqrt
 
 from bodies import Parameters
+import mgt_stellar_functions
+import mgt_system_functions
+
 import database_utils as du
 import lookup_tables as lu
 import math_functions as mf
 import generic_functions as gf
-import build_system_functions as bf
 
 
 def draw_hexagon(canvas, center_x, center_y, size, color="white"):
@@ -92,7 +94,8 @@ def add_circle(event, hex_centers_list, hex_label_dy, parms, subsector):
         print(f'placing tool tip here:  {hex_label_dy[new_hex_label]}')
         create_tooltip(canvas, circle, text=f"Hex: {new_hex_label}")
         subsector = subsector_dy[new_hex_label]
-        bf.build_system(parms, new_hex_label, subsector)
+        mgt_stellar_functions.build_stars(parms, new_hex_label)
+        mgt_system_functions.build_each_system(parms, new_hex_label)
 
 
     else:
@@ -112,7 +115,9 @@ parms = Parameters(
     random_seed=3)
 
 random.seed(parms.random_seed)
-du.create_sql_tables(parms)
+du.create_star_details_table(parms.db_name)
+du.create_system_details_table(parms.db_name)
+du.create_dice_rolls_table(parms.db_name)
 subsector_dy, location_list = gf.get_location_details()
 
 
