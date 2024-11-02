@@ -168,76 +168,78 @@ def get_orbit_number(current_star: mgt_star.Star, previous_star: mgt_star.Star,
     return orbit_number
 
 
+def build_each_orbit(parms: Parameters, each_location: str):
+    logging.info(f'Location: {each_location}')
+    dy_list = du.get_star_list(parms.db_name, each_location)  # SELECT results into dy
+    star_list = mgt_star.get_star_list_from_dy_list(parms, dy_list)  # Converts dy list to object list
+    logging.info(f'Star Object: {star_list}')
+    system = msf.populate_system_from_db(parms, each_location)  # SELECT results directly into System object
+    worlds_per_star_dy = get_worlds_per_star_dy(star_list, system)  # New dict with # worlds per star
 
+    system.get_baseline_orbit_number(star_list)
+    logging.info(f'Original baseline orbit:  {system.baseline_orbit_number}')
+    system.update_baseline_orbit_number(star_list[0], worlds_per_star_dy['primary'])
+    logging.info(f'Updated baseline orbit:  {system.baseline_orbit_number}')
+
+    worlds_per_star_dy = update_worlds_per_star_with_empty_orbits(worlds_per_star_dy, system.empty_orbits)
+
+    system.get_orbit_spread(star_list, worlds_per_star_dy)
+    logging.info(f'Orbit Spread: {system.orbit_spread}')
+
+    world_dy = assign_worlds(worlds_per_star_dy, system)
+
+    current_slot = 1
+    previous_star = None
+    previous_orbits = 0
+
+    for each_star in star_list:
+
+        if each_star.orbit_class in worlds_per_star_dy:
+
+            number_of_worlds_per_star = worlds_per_star_dy[each_star.orbit_class] + current_slot
+
+            for each_world in range(current_slot, number_of_worlds_per_star):
+                logging.info(f' Star: {each_star.orbit_class} Slot: {each_world} {world_dy[each_world]}')
+
+                current_star = get_star_from_star_list(star_list, each_star.orbit_class)
+
+                if current_star:
+                    orbit_number = get_orbit_number(current_star, previous_star, previous_orbits, system)
+                else:
+                    orbit_number = -1
+
+                orbit = mwo.Orbit(
+                    db_name=parms.db_name,
+                    location=system.location,
+                    orbit_slot=current_slot,
+                    star_orbit_class=each_star.orbit_class,
+                    orbit_number=orbit_number,
+                    orbit_au=-1,
+                    world_type=world_dy[each_world],
+                    stars_orbited=-1,
+                    stars_orbited_mass=-1,
+                    orbit_eccentricity=0,
+                    orbit_period=0
+                )
+                orbit.get_stars_orbited(each_star, star_list)
+                orbit.get_au_from_orbit_number()
+
+                previous_star = current_star
+                previous_orbits = orbit_number
+
+                orbit.get_orbit_eccentricity()
+                orbit.get_orbit_period()
+                du.insert_orbit_details(orbit)
+                current_slot += 1
+
+    du.update_orbit_details_in_system(parms, system)
 
 
 def build_orbit_details(parms: Parameters):
     location_list = du.get_locations(parms.db_name)
     du.create_orbit_details_table(parms.db_name)
     for each_location in location_list:
-        logging.info(f'Location: {each_location}')
-        dy_list = du.get_star_list(parms.db_name, each_location)  # SELECT results into dy
-        star_list = mgt_star.get_star_list_from_dy_list(parms, dy_list)  # Converts dy list to object list
-        logging.info(f'Star Object: {star_list}')
-        system = msf.populate_system_from_db(parms, each_location)  # SELECT directly into System object
+        build_each_orbit(parms, each_location)
 
-        worlds_per_star_dy = get_worlds_per_star_dy(star_list, system)  # New dict with # worlds per star
-        system.get_baseline_orbit_number(star_list)
-        logging.info(f'Original baseline orbit:  {system.baseline_orbit_number}')
-        system.update_baseline_orbit_number(star_list[0], worlds_per_star_dy['primary'])
-        logging.info(f'Updated baseline orbit:  {system.baseline_orbit_number}')
-
-        worlds_per_star_dy = update_worlds_per_star_with_empty_orbits(worlds_per_star_dy, system.empty_orbits)
-
-        system.get_orbit_spread(star_list, worlds_per_star_dy)
-        logging.info(f'Orbit Spread: {system.orbit_spread}')
-
-        world_dy = assign_worlds(worlds_per_star_dy, system)
-
-        current_slot = 1
-        previous_star = None
-        previous_orbits = 0
-
-        for each_star in star_list:
-
-            if each_star.orbit_class in worlds_per_star_dy:
-
-                number_of_worlds_per_star = worlds_per_star_dy[each_star.orbit_class] + current_slot
-
-                for each_world in range(current_slot, number_of_worlds_per_star):
-                    logging.info(f' Star: {each_star.orbit_class} Slot: {each_world} {world_dy[each_world]}')
-
-                    current_star = get_star_from_star_list(star_list, each_star.orbit_class)
-
-                    if current_star:
-                        orbit_number = get_orbit_number(current_star, previous_star, previous_orbits, system)
-                    else:
-                        orbit_number = -1
-
-                    orbit = mwo.Orbit(
-                        db_name=parms.db_name,
-                        location=system.location,
-                        orbit_slot=current_slot,
-                        star_orbit_class=each_star.orbit_class,
-                        orbit_number=orbit_number,
-                        orbit_au = -1,
-                        world_type=world_dy[each_world],
-                        stars_orbited=-1,
-                        stars_orbited_mass=-1,
-                        orbit_eccentricity=0,
-                        orbit_period=0
-                    )
-                    orbit.get_stars_orbited(each_star, star_list)
-                    orbit.get_au_from_orbit_number()
-
-                    previous_star = current_star
-                    previous_orbits = orbit_number
-
-                    orbit.get_orbit_eccentricity()
-                    orbit.get_orbit_period()
-                    du.insert_orbit_details(orbit)
-                    current_slot += 1
-
-        du.update_orbit_details_in_system(parms, system)
 
 
