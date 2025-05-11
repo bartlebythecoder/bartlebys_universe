@@ -2,6 +2,8 @@ import sqlite3
 import time
 import logging
 
+
+
 def re_connect_to_db(c, conn, db_name):
     logging.info('Lost connection to DB')
     logging.info('Reconnecting...')
@@ -485,6 +487,7 @@ def get_star_list(db_name, location):
     finally:
         c.close()
 
+
     conn.close()
 
     star_list = []
@@ -495,3 +498,140 @@ def get_star_list(db_name, location):
             star_list.append(star_info)
 
     return star_list
+
+def get_world_number_list(db_name):
+    sql_world_number_list = """SELECT id FROM world"""
+    conn = sqlite3.connect(db_name)
+    c = conn.cursor()
+
+    try:
+        c.execute(sql_world_number_list)
+        rows = c.fetchall()  # Fetch all results
+    finally:
+        c.close()
+
+
+    conn.close()
+
+    world_list = []
+    if rows:
+        for row in rows:
+            world_list.append(row[0])
+
+    return world_list
+
+def update_world_climate(db_name, world_climate):
+    sql_update_details = '''
+       INSERT INTO world_climate (world_id, axial_tilt)
+       VALUES (?,?)
+       '''
+
+    values_to_update = (
+        world_climate.world_id,
+        world_climate.axial_tilt
+    )
+
+    conn = sqlite3.connect(db_name)
+    c = conn.cursor()
+
+    try:
+        c.execute(sql_update_details, values_to_update)
+        conn.commit()
+        logging.info(f'Updating world_climate details {values_to_update}')
+    except:
+        c.close()
+        conn.close()
+        re_connect_to_db(c, conn, db_name)
+        c.execute(sql_update_details, values_to_update)
+        conn.commit()
+        logging.info(f'Updating world_climate details {values_to_update}')
+
+    finally:
+        c.close()
+
+    conn.close()
+
+def update_world_biology(db_name, world_biology):
+    sql_update_details = '''
+       INSERT INTO world_biology (world_id, biomass_rating, biocomplexity_rating, biodiversity_rating,
+       compatibility_rating, resource_rating, habitability_rating)
+       VALUES (?,?,?,?,?,?,?)
+       '''
+
+    values_to_update = (
+
+        world_biology.world_id,
+        world_biology.biomass_rating,
+        world_biology.biocomplexity_rating,
+        world_biology.biodiversity_rating,
+        world_biology.compatibility_rating,
+        world_biology.resource_rating,
+        world_biology.habitability_rating
+    )
+
+    conn = sqlite3.connect(db_name)
+    c = conn.cursor()
+
+    try:
+        c.execute(sql_update_details, values_to_update)
+        conn.commit()
+        logging.info(f'Updating world_biology details {values_to_update}')
+    except:
+        c.close()
+        conn.close()
+        re_connect_to_db(c, conn, db_name)
+        c.execute(sql_update_details, values_to_update)
+        conn.commit()
+        logging.info(f'Re-updating world_biology details {values_to_update}')
+
+    finally:
+        c.close()
+
+    conn.close()
+
+def get_bio_input(db_name, world_id):
+
+    sql_statement = '''SELECT
+    w.id, w.location_orbit, ts.atmosphere, ts.hydrographics, ob.temperature, ts.size, ob.density, ob.gravity
+    FROM world w
+    LEFT JOIN traveller_stats ts
+    ON ts.location_orb = w.location_orbit
+    LEFT JOIN
+    orbital_bodies ob
+    ON ob.location_orbit = w.location_orbit
+    WHERE w.id = ?
+    '''
+
+
+    conn = sqlite3.connect(db_name)
+    c = conn.cursor()
+
+    c.execute(sql_statement, (world_id,))
+    answers = c.fetchall()
+
+    return answers[0]
+
+def get_pop_input(db_name, world_id):
+
+    sql_statement = '''SELECT
+    w.id, w.location_orbit, ts.size, ts.atmosphere, ts.population, ts.government, ts.tech_level, ss.remarks
+    FROM world w
+    LEFT JOIN traveller_stats ts
+    ON ts.location_orb = w.location_orbit
+    LEFT JOIN
+    orbital_bodies ob
+    ON ob.location_orbit = w.location_orbit
+    LEFT JOIN
+    system_stats ss
+    ON ss.location = w.location
+    WHERE w.id = ?
+    '''
+
+
+    conn = sqlite3.connect(db_name)
+    c = conn.cursor()
+
+    c.execute(sql_statement, (world_id,))
+    answers = c.fetchall()
+
+    return answers[0]
