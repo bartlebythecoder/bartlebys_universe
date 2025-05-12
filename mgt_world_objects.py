@@ -1,10 +1,12 @@
 from dataclasses import dataclass
-import logging
 import math
+import random
 import generic_functions as gf
 import database_utils as du
 import lookup_tables as lu
+import logging
 from bodies import Parameters, DiceRoll
+
 
 @dataclass
 class World:
@@ -18,16 +20,16 @@ class World:
     main_world: int
 
 @dataclass
-class World_climate:
+class World_Climate:
     db_name: str
     world_id: int
     axial_tilt: float
     axial_tile_remark: str
 
-    def __init__(self, parms: Parameters, world_id: int):
+    def __init__(self, parms: Parameters, world_input_dictionary: dict):
         # Initialize attributes with provided values
         self.db_name = parms.db_name
-        self.world_id = world_id
+        self.world_id = world_input_dictionary['world_id']
         self.axial_tilt = -99
 
 
@@ -85,23 +87,29 @@ class World_climate:
 
 
 @dataclass
-class World_population:
+class World_Biology:
     db_name: str
     world_id: int
-    population_concentration: int
-    urban_pct: float
-    major_cities_total: int
-    major_cities_population_total: int
+    biomass_rating: int
+    biocomplexity_rating: int
+    biodiversity_rating: int
+    compatibility_rating: int
+    resource_rating: int
+    habitability_rating: int
+    input_dictionary: dict
 
-    def __init__(self, parms: Parameters, world_id: int):
+
+    def __init__(self, parms: Parameters, world_input_dictionary: dict):
         # Initialize attributes with provided values
         self.db_name = parms.db_name
-        self.world_id = world_id
-        self.population_concentration = -99
-        self.urban_pct = -99
-        self.major_cities_total = -99
-        self.major_cities_population_total = -99
-        self.modifier_stats = du.get_pop_input(self.db_name, self.world_id)
+        self.world_id = world_input_dictionary['world_id']
+        self.biomass_rating = -99
+        self.biocomplexity_rating = -99
+        self.biodiversity_rating = -99
+        self.compatibility_rating = -99
+        self.resource_rating = -99
+        self.habitability_rating = -99
+        self.input_dictionary = world_input_dictionary
 
     def generate_biomass(self):
 
@@ -114,11 +122,9 @@ class World_population:
             table_result=str(dice_roll))
         du.insert_dice_rolls(self.db_name, dice_info)
 
-        biomass_input = self.modifier_stats
-        print(f'{self.world_id} Biomass Input {biomass_input}')
-        atmosphere = biomass_input[2]
-        hydrographics = biomass_input[3]
-        temperature = biomass_input[4]
+        atmosphere =    self.input_dictionary['atmosphere']
+        hydrographics = self.input_dictionary['hydrographics']
+        temperature =   self.input_dictionary['temperature']
 
         biomass_atmos_mod = 0
         biomass_hydro_mod = 0
@@ -167,8 +173,7 @@ class World_population:
                 table_result=str(dice_roll))
             du.insert_dice_rolls(self.db_name, dice_info)
 
-            biocomplexity_input = self.modifier_stats
-            atmosphere = biocomplexity_input [2]
+            atmosphere =    self.input_dictionary['atmosphere']
 
             atmos_mod = 0
             if atmosphere not in [4,5,6,7,8,9]: atmos_mod = -2
@@ -216,8 +221,8 @@ class World_population:
                 dice_result=dice_roll,
                 table_result=str(dice_roll))
             du.insert_dice_rolls(self.db_name, dice_info)
-            compatibility_input = self.modifier_stats
-            atmosphere = compatibility_input[2]
+
+            atmosphere = self.input_dictionary['atmosphere']
 
             atmos_mod = 0
             if atmosphere in [0,1,11,16,17]:
@@ -254,10 +259,10 @@ class World_population:
             dice_result=dice_roll,
             table_result=str(dice_roll))
         du.insert_dice_rolls(self.db_name, dice_info)
-        resource_input = self.modifier_stats
-        atmosphere = resource_input[5]
-        size = resource_input[6]
-        earth_density = resource_input[7] / 5.5
+
+        atmosphere = self.input_dictionary['atmosphere']
+        size = self.input_dictionary['size']
+        earth_density = self.input_dictionary['gravity'] / 5.5
 
 
         density_mod = 0
@@ -268,7 +273,7 @@ class World_population:
         if self.biomass_rating >= 3: biomass_mod = 2
 
         biodiversity_mod = 0
-        if self.biodiversity_rating in [8,9,10]: biomass_mod = 1
+        if self.biodiversity_rating in [8,9,10]: biodiversity_mod = 1
         if self.biodiversity_rating >= 11: biodiversity_mod = 2
 
         compatibility_mod = 0
@@ -278,18 +283,18 @@ class World_population:
             compatibility_mod = 2
 
         resource_rating = dice_roll + size + density_mod + biomass_mod + biodiversity_mod + compatibility_mod
-        resource_rating = round(resource_rating,0)
+        resource_rating = round(resource_rating)
         if resource_rating < 2: resource_rating = 2
 
         self.resource_rating = resource_rating
 
     def generate_habitability(self):
-        habitability_input = self.modifier_stats
-        atmosphere = habitability_input[2]
-        hydrographics = habitability_input[3]
-        temperature = habitability_input[4]
-        size = habitability_input[5]
-        gravity = habitability_input[7]
+
+        atmosphere = self.input_dictionary['atmosphere']
+        hydrographics = self.input_dictionary['hydrographics']
+        temperature = self.input_dictionary['temperature']
+        size = self.input_dictionary['size']
+        gravity = self.input_dictionary['gravity']
 
         size_mod = 0
         if size <= 4: size_mod = -1
@@ -335,3 +340,536 @@ class World_population:
         habitability = round(habitability,0)
         if habitability < 0: habitability = 0
         self.habitability_rating = habitability
+
+
+@dataclass
+class World_Population:
+    db_name: str
+    world_id: int
+    population_concentration: int
+    urban_pct: float
+    major_cities_total: int
+    major_cities_population_total: int
+    input_dictionary: dict
+
+
+    def __init__(self, parms: Parameters, world_input_dictionary: dict):
+        # Initialize attributes with provided values
+        self.db_name = parms.db_name
+        self.world_id = world_input_dictionary['world_id']
+        self.population_concentration = -99
+        self.urban_pct = -99
+        self.major_cities_total = -99
+        self.major_cities_population_total = -99
+        self.input_dictionary = world_input_dictionary
+
+
+    def generate_population_concentration(self):
+
+        size = self.input_dictionary['size']
+        atmosphere = self.input_dictionary['atmosphere']
+        population = self.input_dictionary['population']
+        government = self.input_dictionary['government']
+        tech_level = self.input_dictionary['tech_level']
+        remarks = self.input_dictionary['remarks']
+
+        dice_roll = gf.roll_dice(1)
+        dice_info = DiceRoll(
+            location=str(self.world_id),
+            number=1,
+            reason='pcr base roll',
+            dice_result=dice_roll,
+            table_result=str(dice_roll))
+        du.insert_dice_rolls(self.db_name, dice_info)
+
+        if population == 0:
+            pcr = 0
+
+        elif dice_roll > population:
+            pcr = 9
+
+        else:
+
+            size_mod = 0
+            if size == 1: size_mod = 2
+            elif size in [2,3]: size_mod = 1
+
+            # in text as minimal tech
+            atmos_mod = 0
+            if atmosphere in [0,1,10,11,12]:
+                atmos_mod = +3
+            elif atmosphere in [2,3,4,7,9,13,14]:
+                atmos_mod = +1
+
+            gov_mod = 0
+            if government == 7: gov_mod = -2
+
+            tech_level_mod = 0
+            if tech_level in [0,1]:
+                tech_level_mod = -2
+            elif tech_level in [2,3]:
+                tech_level_mod = -1
+            elif tech_level in [4,5,6,7,8,9]:
+                tech_level_mod = 1
+
+            remark_mod = 0
+            if 'Ag' in remarks:
+                remark_mod -= 2
+            if 'In' in remarks:
+                remark_mod += 1
+            if 'Na' in remarks:
+                remark_mod -= 1
+            if 'Ri' in remarks:
+                remark_mod += 1
+
+            pcr = dice_roll + size_mod + atmos_mod + gov_mod + tech_level_mod + remark_mod
+
+        if pcr < 0: pcr = 0
+        elif pcr > 9: pcr = 9
+
+        self.population_concentration = pcr
+
+    def generate_urban_pct(self):
+
+        size = self.input_dictionary['size']
+        atmosphere = self.input_dictionary['atmosphere']
+        population = self.input_dictionary['population']
+        government = self.input_dictionary['government']
+        law = self.input_dictionary['law']
+        tech_level = self.input_dictionary['tech_level']
+        remarks = self.input_dictionary['remarks']
+
+        dice_roll = gf.roll_dice(2)
+        dice_info = DiceRoll(
+            location=str(self.world_id),
+            number=2,
+            reason='urban_pct base roll',
+            dice_result=dice_roll,
+            table_result=str(dice_roll))
+        du.insert_dice_rolls(self.db_name, dice_info)
+
+        minimum_pct = 0
+        maximum_pct = 100
+
+        min_max_roll = gf.roll_dice(1)
+        dice_info = DiceRoll(
+            location=str(self.world_id),
+            number=1,
+            reason='min max roll',
+            dice_result=min_max_roll,
+            table_result=str(min_max_roll))
+        du.insert_dice_rolls(self.db_name, dice_info)
+
+        pcr_mod = 0
+        if self.population_concentration in [0,1,2]:
+            pcr_mod = -3 + self.population_concentration
+        elif self.population_concentration >= 7:
+            pcr_mod = -6 + self.population_concentration
+
+        atmos_mod = 0
+        if atmosphere in [4,7,9]:
+            atmos_mod = -1
+
+        size_mod = 0
+        if size == 0:
+            size_mod = 2
+
+        population_mod = 0
+        if population == 8:
+            population_mod = 1
+        elif population == 9:
+            population_mod = 2
+            minimum_pct = 18 + min_max_roll
+        elif population == 10:
+            population_mod = 4
+            minimum_pct = 50 + min_max_roll
+
+        government_mod = 0
+        if government == 0:
+            government_mod = -2
+
+        law_level_mod = 0
+        if law >= 9:
+            law_level_mod = 1
+
+        tech_level_mod = 0
+        if tech_level in [0,1,2]:
+            tech_level_mod = -2
+            maximum_pct = 20 + min_max_roll
+        elif tech_level == 3:
+            tech_level_mod = -1
+            maximum_pct = 30 + min_max_roll
+        elif tech_level == 4:
+            tech_level_mod = 1
+            maximum_pct = 60 + min_max_roll
+        elif tech_level in [5,6,7,8,9]:
+            tech_level_mod = 2
+            maximum_pct = 90 + min_max_roll
+        elif tech_level == 10:
+            tech_level_mod = 1
+
+        remarks_mod = 0
+        if 'Ag' in remarks:
+            remarks_mod = -2
+            maximum_pct = 90 + min_max_roll
+        elif 'Na' in remarks:
+            remarks_mod = 2
+
+        urban_pct_roll = (dice_roll + pcr_mod + atmos_mod + size_mod + population_mod + government_mod + law_level_mod
+        + tech_level_mod + remarks_mod)
+
+        if urban_pct_roll < 0: urban_pct_roll = 0
+        elif urban_pct_roll > 13: urban_pct_roll = 13
+
+        urban_pct_dict = {
+            0: [0,0],
+            1: [1,6],
+            2: [7,12],
+            3: [13-18],
+            4: [19-24],
+            5: [25,36],
+            6: [37,48],
+            7: [49,60],
+            8: [61,72],
+            9: [73,84],
+            10: [85,90],
+            11: [91,96],
+            12: [97,99],
+            13: [100,100]
+        }
+
+        start_pct_end_pct = urban_pct_dict[urban_pct_roll]
+        urban_pct = random.randint(start_pct_end_pct[0], start_pct_end_pct[0] )
+
+        if urban_pct < minimum_pct: urban_pct = minimum_pct
+        elif urban_pct > maximum_pct: urban_pct = maximum_pct
+
+        urban_pct = urban_pct / 100
+
+        self.urban_pct = urban_pct
+
+
+    def generate_major_cities_stats(self):
+        population = self.input_dictionary['population']
+        pop_mod = int(self.input_dictionary['pop_mod'])
+        total_population: int = round((10 ** population) * pop_mod)
+        urban_population: int = round(self.urban_pct * total_population)
+
+        major_cities_total: int = 0
+        major_city_population: int = 0
+
+        if self.population_concentration == 0:
+            major_cities_total = 0
+            major_city_population = 0
+        elif self.population_concentration >= 9 and population <= 5:
+            major_cities_total = 1
+            major_city_population = urban_population
+        elif self.population_concentration < 9 and population <= 5:
+            major_cities_total = 9 - self.population_concentration
+            if population < major_cities_total: major_cities_total = population
+            major_city_population = urban_population
+        elif self.population_concentration >= 9 and population >= 6:
+            dice_roll = gf.roll_dice(2)
+            dice_info = DiceRoll(
+                location=str(self.world_id),
+                number=2,
+                reason='major city pop roll',
+                dice_result=dice_roll,
+                table_result=str(dice_roll))
+            du.insert_dice_rolls(self.db_name, dice_info)
+
+            major_cities_total = population - dice_roll
+            if major_cities_total <= 1: major_cities_total = 1
+            major_city_population = urban_population
+
+        else:
+            dice_roll = gf.roll_dice(2)
+            dice_info = DiceRoll(
+                location=str(self.world_id),
+                number=2,
+                reason='major city roll',
+                dice_result=dice_roll,
+                table_result=str(dice_roll))
+            du.insert_dice_rolls(self.db_name, dice_info)
+
+            major_cities_total = round(((dice_roll - self.population_concentration) +
+                                  ((self.urban_pct * 20) / self.population_concentration)))
+
+
+            die_roll = gf.roll_dice(2)
+            dice_info = DiceRoll(
+                location=str(self.world_id),
+                number=1,
+                reason='major city pop roll',
+                dice_result=die_roll,
+                table_result=str(die_roll))
+            du.insert_dice_rolls(self.db_name, dice_info)
+
+            major_city_population = round((self.population_concentration/(die_roll + 7)) * urban_population)
+
+        self.major_cities_total = major_cities_total
+        if self.major_cities_total < 0: self.major_cities_total = 0
+        self.major_cities_population_total = major_city_population
+
+
+
+@dataclass
+class World_Culture_Mongoose:
+    db_name: str
+    world_id: int
+    diversity: int
+    xenophilia: int
+    uniqueness: int
+    symbology: int
+    social_cohension: int
+    progressiveness: int
+    expansionism: int
+    militancy: int
+    input_dictionary: dict
+
+
+    def __init__(self, parms: Parameters, world_input_dictionary: dict):
+        # Initialize attributes with provided values
+        self.db_name = parms.db_name
+        self.world_id = world_input_dictionary['world_id']
+        self.diversity = -99
+        self.xenophilia = -99
+        self.symbology = -99
+        self.social_cohesion = -99
+        self.progressiveness = -99
+        self.expansionism = -99
+        self.militancy = -99
+        self.input_dictionary = world_input_dictionary
+
+
+    def generate_diversity(self):
+        population = self.input_dictionary['population']
+        heterogeneity: int = gf.hex_to_int(self.input_dictionary['cx'][1:2])
+        diversity: int = 0
+
+        if heterogeneity > population + 5:
+            heterogeneity = population + 5
+        elif heterogeneity < population - 5:
+            heterogeneity = population - 5
+
+        if heterogeneity < 1:
+            if population > 0:
+                heterogeneity = 1
+            else:
+                heterogeneity = 0
+
+        self.diversity = heterogeneity
+
+    def generate_xenophilia(self):
+        acceptance: int = gf.hex_to_int(self.input_dictionary['cx'][2:3])
+        population: int = self.input_dictionary['population']
+        importance: int = 0
+        raw_importance: str = self.input_dictionary['importance']
+        raw_importance = raw_importance.replace("{","")
+        raw_importance = raw_importance.replace("}", "")
+        importance = int(raw_importance)
+
+        xenophilia: int = acceptance
+
+        if acceptance > importance + population:
+            acceptance = importance + population
+        elif acceptance < importance - population:
+            acceptance = importance + population
+
+        if acceptance < 1:
+            if population > 0:
+                acceptance = 1
+            else:
+                acceptance = 0
+
+        self.xenophilia = acceptance
+
+    def generate_social_cohesion(self):
+        dice_roll = gf.roll_dice(2)
+        dice_info = DiceRoll(
+            location=str(self.world_id),
+            number=2,
+            reason='cohesion roll',
+            dice_result=dice_roll,
+            table_result=str(dice_roll))
+        du.insert_dice_rolls(self.db_name, dice_info)
+
+        government =    self.input_dictionary['government']
+        law =           self.input_dictionary['law']
+        diversity =     self.diversity
+        population =    self.input_dictionary['population']
+        pcr = du.get_world_pcr(self.db_name, self.input_dictionary['world_id'])[0]
+
+        gov_mod: int = 0
+        if government in [3,12]: gov_mod = 2
+        elif government in [5,6,9]: gov_mod = 1
+
+        law_mod = 0
+        if law in [0,1,2]:
+            law_mod = -2
+        elif law >= 10:
+            law_mod = 2
+
+        pcr_mod = 0
+        if pcr in [0,1,2,3]:
+            pcr_mod = -2
+        elif pcr >= 7:
+            pcr_mod = 2
+
+        diversity_mod = 0
+        if diversity in [1,2]:
+            diversity_mod = 4
+        elif diversity in [3,4,5]:
+            diversity_mod = 2
+        elif diversity in [9,10,11]:
+            diversity_mod = -2
+        elif diversity >= 12:
+            diversity_mod = -4
+
+        self.social_cohesion = dice_roll + gov_mod + law_mod + pcr_mod + diversity_mod
+
+        if self.social_cohesion < 1:
+            if population > 0:
+                self.social_cohesion = 1
+            else:
+                self.social_cohesion = 0
+
+
+    def generate_progressiveness(self):
+        dice_roll = gf.roll_dice(2)
+        dice_info = DiceRoll(
+            location=str(self.world_id),
+            number=2,
+            reason='progressiveness roll',
+            dice_result=dice_roll,
+            table_result=str(dice_roll))
+        du.insert_dice_rolls(self.db_name, dice_info)
+
+        population: int = self.input_dictionary['population']
+        government: int = self.input_dictionary['government']
+        law:        int = self.input_dictionary['law']
+        diversity:  int = self.diversity
+        xenophilia: int = self.xenophilia
+        cohesion:   int = self.social_cohesion
+
+        pop_mod: int = 0
+        if population in [6,7,8]: pop_mod = -1
+        elif population >= 9: pop_mod = -2
+
+        gov_mod: int = 0
+        if government == 5: gov_mod = 1
+        elif government == 11: gov_mod = -2
+        elif government in [13,14]: gov_mod = -6
+
+        law_mod: int = 0
+        if law in [9,10,11]: law_mod = -1
+        elif law >= 12: law_mod = -4
+
+        diversity_mod: int = 0
+        if diversity in [1,2,3]: diversity_mod = -2
+        elif diversity >= 12: diversity_mod = 1
+
+        xenophilia_mod: int = 0
+        if xenophilia in [1,2,3,4,5]:
+            xenophilia_mod = -1
+        elif xenophilia >= 9:
+            xenophilia_mod = 2
+
+        cohesion_mod: int = 0
+        if cohesion in [1,2,3,4,5]:
+            cohesion_mod = 2
+        elif cohesion >= 9:
+            cohesion_mod = -2
+
+        self.progressiveness = dice_roll + pop_mod + gov_mod + law_mod + diversity_mod + xenophilia_mod + cohesion_mod
+        if self.progressiveness < 1:
+            if population > 0:
+                self.progressiveness = 1
+            else:
+                self.progressiveness = 0
+
+    def generate_expansionism(self):
+
+        dice_roll = gf.roll_dice(2)
+        dice_info = DiceRoll(
+            location=str(self.world_id),
+            number=2,
+            reason='expansionism roll',
+            dice_result=dice_roll,
+            table_result=str(dice_roll))
+        du.insert_dice_rolls(self.db_name, dice_info)
+
+        government: int = self.input_dictionary['government']
+        diversity:  int = self.diversity
+        xenophilia: int = self.xenophilia
+        population:     int = self.input_dictionary['population']
+
+        gov_mod: int = 0
+        if government == 10 or government >= 12:
+            gov_mod = 2
+
+        diversity_mod: int = 0
+        if diversity in [1,2,3]:
+            diversity_mod = 3
+        elif diversity >= 12:
+            diversity_mod = -3
+
+        xenophilia_mod: int = 0
+        if xenophilia <= 5:
+            xenophilia_mod = 1
+        elif xenophilia >= 9:
+            xenophilia_mod = -2
+
+        self.expansionism = dice_roll + gov_mod + diversity_mod + xenophilia_mod
+        if self.expansionism < 1:
+            if population > 0:
+                self.expansionism = 1
+            else:
+                self.expansionism = 0
+
+    def generate_militancy(self):
+
+        dice_roll = gf.roll_dice(2)
+        dice_info = DiceRoll(
+            location=str(self.world_id),
+            number=2,
+            reason='militancy roll',
+            dice_result=dice_roll,
+            table_result=str(dice_roll))
+        du.insert_dice_rolls(self.db_name, dice_info)
+
+        government:     int = self.input_dictionary['government']
+        law:            int = self.input_dictionary['law']
+        xenophilia:     int = self.xenophilia
+        expansionism:   int = self.expansionism
+        population:     int = self.input_dictionary['population']
+
+        gov_mod: int = 0
+        if government >= 10: gov_mod = 3
+
+        law_mod: int = 0
+        if 9 <= law <= 11:
+            law_mod = 1
+        elif law >= 12:
+            law_mod = 2
+
+        xenophilia_mod: int = 0
+        if xenophilia <= 5:
+            xenophilia_mod = 1
+        elif xenophilia >= 9:
+            xenophilia_mod = -2
+
+        expansionism_mod: int = 0
+        if expansionism <= 5:
+            expansionism_mod = -1
+        elif 9 <= expansionism <= 11:
+            expansionism_mod = 1
+        elif expansionism >= 12:
+            expansionism_mod = 2
+
+        self.militancy = dice_roll + gov_mod + law_mod + xenophilia_mod + expansionism_mod
+        if self.militancy < 1:
+            if population > 0:
+                self.militancy = 1
+            else:
+                self.militancy = 0

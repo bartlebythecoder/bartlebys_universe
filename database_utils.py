@@ -589,32 +589,86 @@ def update_world_biology(db_name, world_biology):
 
     conn.close()
 
-def get_bio_input(db_name, world_id):
 
-    sql_statement = '''SELECT
-    w.id, w.location_orbit, ts.atmosphere, ts.hydrographics, ob.temperature, ts.size, ob.density, ob.gravity
-    FROM world w
-    LEFT JOIN traveller_stats ts
-    ON ts.location_orb = w.location_orbit
-    LEFT JOIN
-    orbital_bodies ob
-    ON ob.location_orbit = w.location_orbit
-    WHERE w.id = ?
-    '''
+def update_world_population(db_name, world_biology):
+    sql_update_details = '''
+       INSERT INTO world_population (world_id, population_concentration, urban_pct,
+       major_cities_total, major_cities_population_total)
+       VALUES (?,?,?,?,?)
+       '''
 
+    values_to_update = (
+        world_biology.world_id,
+        world_biology.population_concentration,
+        world_biology.urban_pct,
+        world_biology.major_cities_total,
+        world_biology.major_cities_population_total
+    )
 
     conn = sqlite3.connect(db_name)
     c = conn.cursor()
 
-    c.execute(sql_statement, (world_id,))
-    answers = c.fetchall()
+    try:
+        c.execute(sql_update_details, values_to_update)
+        conn.commit()
 
-    return answers[0]
+    except:
+        c.close()
+        conn.close()
+        re_connect_to_db(c, conn, db_name)
+        c.execute(sql_update_details, values_to_update)
+        conn.commit()
+        logging.info(f'Re-updating world_biology details {values_to_update}')
 
-def get_pop_input(db_name, world_id):
+    finally:
+        c.close()
+
+    conn.close()
+
+def update_world_culture(db_name, world_culture):
+    sql_update_details = '''
+       INSERT INTO world_culture_mongoose (world_id, diversity, xenophilia, social_cohesion,
+       progressiveness, expansionism, militancy)
+       VALUES (?,?,?,?,?,?,?)
+       '''
+
+    values_to_update = (
+        world_culture.world_id,
+        world_culture.diversity,
+        world_culture.xenophilia,
+        world_culture.social_cohesion,
+        world_culture.progressiveness,
+        world_culture.expansionism,
+        world_culture.militancy
+
+    )
+
+    conn = sqlite3.connect(db_name)
+    c = conn.cursor()
+
+    try:
+        c.execute(sql_update_details, values_to_update)
+        conn.commit()
+
+    except:
+        c.close()
+        conn.close()
+        re_connect_to_db(c, conn, db_name)
+        c.execute(sql_update_details, values_to_update)
+        conn.commit()
+        logging.info(f'Re-updating world_biology details {values_to_update}')
+
+    finally:
+        c.close()
+
+    conn.close()
+
+
+def get_world_input(db_name, world_id):
 
     sql_statement = '''SELECT
-    w.id, w.location_orbit, ts.size, ts.atmosphere, ts.population, ts.government, ts.tech_level, ss.remarks
+    w.id, w.location_orbit, ts.size, ts.atmosphere, ts.hydrographics, ts.population, ts.government, ts.law, ts.tech_level, 
+    ss.remarks, SUBSTR(ss.pbg, 1, 1) AS pop_mod, ob.temperature, ob.density, ob.gravity, ss.cx, ss.ix, w.main_world
     FROM world w
     LEFT JOIN traveller_stats ts
     ON ts.location_orb = w.location_orbit
@@ -627,6 +681,21 @@ def get_pop_input(db_name, world_id):
     WHERE w.id = ?
     '''
 
+
+    conn = sqlite3.connect(db_name)
+    c = conn.cursor()
+
+    c.execute(sql_statement, (world_id,))
+    answers = c.fetchall()
+
+    return answers[0]
+
+def get_world_pcr(db_name, world_id):
+
+    sql_statement = '''SELECT population_concentration
+    FROM world_population w
+    WHERE w.world_id = ?
+    '''
 
     conn = sqlite3.connect(db_name)
     c = conn.cursor()
